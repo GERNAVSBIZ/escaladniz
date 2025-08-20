@@ -105,7 +105,7 @@
                 <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
                     <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-hourglass-half fa-2x text-amber-600"></i></div>
                     <div>
-                        <p class="text-gray-500 text-sm">Horas Totais</p>
+                        <p class="text-gray-500 text-sm">Horas Totais (Mês)</p>
                         <p id="total-hours" class="text-2xl font-bold text-gray-800">0h</p>
                     </div>
                 </div>
@@ -346,29 +346,30 @@
             renderTable(); updateAllStats(); populateModalSelect();
         }
 
-        function renderTable() {
-            const MONTH_MAP = { 'JANEIRO': 0, 'FEVEREIRO': 1, 'MARÇO': 2, 'ABRIL': 3, 'MAIO': 4, 'JUNHO': 5, 'JULHO': 6, 'AGOSTO': 7, 'SETEMBRO': 8, 'OUTUBRO': 9, 'NOVEMBRO': 10, 'DEZEMBRO': 11 };
-            const monthIndex = MONTH_MAP[monthName.toUpperCase()];
-            
-            // Lógica para identificar dias do mês atual vs. outros meses
+        function getDayStatusArray() {
             const dayStatus = [];
             let currentStatus = 'previous';
             for (let i = 0; i < dateHeaders.length; i++) {
                 if (i > 0 && parseInt(dateHeaders[i]) < parseInt(dateHeaders[i-1])) {
                     currentStatus = (currentStatus === 'previous') ? 'current' : 'next';
                 }
-                // Caso especial para o primeiro dia "1"
                 if (dateHeaders[i] === '1' && currentStatus === 'previous') {
                     currentStatus = 'current';
                 }
                 dayStatus.push(currentStatus);
             }
+            return dayStatus;
+        }
+
+        function renderTable() {
+            const MONTH_MAP = { 'JANEIRO': 0, 'FEVEREIRO': 1, 'MARÇO': 2, 'ABRIL': 3, 'MAIO': 4, 'JUNHO': 5, 'JULHO': 6, 'AGOSTO': 7, 'SETEMBRO': 8, 'OUTUBRO': 9, 'NOVEMBRO': 10, 'DEZEMBRO': 11 };
+            const monthIndex = MONTH_MAP[monthName.toUpperCase()];
+            const dayStatus = getDayStatusArray();
 
             let html = '<thead class="sticky top-0 z-20"><tr class="bg-gray-200"><th class="p-2 font-semibold text-left sticky left-0 bg-gray-200 z-30" rowspan="2">Operador</th>';
             dateHeaders.forEach((day, index) => {
                 let weekDay = '';
                 if (year && monthIndex !== undefined) {
-                    // Lógica para calcular a data correta para dias de outros meses
                     let effectiveMonth = monthIndex;
                     if (dayStatus[index] === 'previous') effectiveMonth -= 1;
                     if (dayStatus[index] === 'next') effectiveMonth += 1;
@@ -401,15 +402,20 @@
 
         function updateAllStats() {
             let totalOperators = scheduleData.length, totalShifts = 0, totalHours = 0;
+            const dayStatus = getDayStatusArray();
+
             const operatorStats = scheduleData.map(operator => {
                 let workedHours = 0, workDays = 0, offDays = 0, vacationDays = 0;
-                operator.shifts.forEach(shift => {
-                    const config = SHIFT_CONFIG[shift];
-                    if (config) {
-                        workedHours += config.hours;
-                        if (config.hours > 0) { workDays++; totalShifts++; }
-                        else if (['X', 'FC', 'FF'].includes(shift)) { offDays++; }
-                        else if (shift === 'FE') { vacationDays++; }
+                operator.shifts.forEach((shift, index) => {
+                    // ALTERAÇÃO: Contabiliza apenas se for um dia do mês atual
+                    if (dayStatus[index] === 'current') {
+                        const config = SHIFT_CONFIG[shift];
+                        if (config) {
+                            workedHours += config.hours;
+                            if (config.hours > 0) { workDays++; totalShifts++; }
+                            else if (['X', 'FC', 'FF'].includes(shift)) { offDays++; }
+                            else if (shift === 'FE') { vacationDays++; }
+                        }
                     }
                 });
                 totalHours += workedHours;
@@ -451,8 +457,8 @@
             const newShift = modalShiftSelect.value;
             scheduleData[opIndex].shifts[dayIndex] = newShift;
             editModal.classList.add('hidden');
-            updateAllStats(); // Update stats before re-rendering table
-            renderTable(); // Re-render table to apply correct colors
+            updateAllStats();
+            renderTable();
             await saveScheduleToFirestore();
         }
 
@@ -487,7 +493,7 @@
                 firstSelection = null;
                 toggleSwapMode();
                 updateAllStats();
-                renderTable(); // Re-render table to apply correct colors
+                renderTable();
                 await saveScheduleToFirestore();
             }
         }
