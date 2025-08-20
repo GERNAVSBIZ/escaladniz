@@ -47,7 +47,7 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-6">
             <div class="text-center md:text-left">
                 <!-- Para a imagem aparecer, faça o upload do arquivo 'dniz.png' para o seu repositório no GitHub -->
-                <img src="dniz.png" alt="Logo DNIZ" class="h-16 mx-auto md:mx-0" onerror="this.onerror=null;this.src='https://placehold.co/120x50/ffffff/000000?text=DNIZ';">
+                <img src="dniz.png" alt="Logo DNIZ" class="h-16 mx-auto md:mx-0" onerror="this.onerror=null;this.src='https://placehold.co/150x64/ffffff/000000?text=DNIZ';">
                 <h1 class="text-2xl font-bold text-gray-800 mt-1">ESCALAS DNIZ</h1>
             </div>
             <div id="auth-container" class="mt-4 md:mt-0 flex items-center gap-4">
@@ -115,7 +115,7 @@
             <main id="main-content" class="bg-white p-6 rounded-xl shadow-lg hidden">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <h2 id="table-title" class="text-xl font-semibold text-gray-700">Escala Mensal</h2>
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 flex-wrap">
                         <button id="swap-shifts-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-md flex items-center gap-2">
                             <i class="fas fa-exchange-alt"></i>
                             <span id="swap-btn-text">Trocar Turnos</span>
@@ -123,6 +123,10 @@
                         <button id="export-csv" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors shadow-md flex items-center gap-2">
                             <i class="fas fa-file-download"></i>
                             Exportar CSV
+                        </button>
+                        <button id="delete-schedule-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors shadow-md flex items-center gap-2">
+                            <i class="fas fa-trash-alt"></i>
+                            Deletar Escala
                         </button>
                     </div>
                 </div>
@@ -160,6 +164,18 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <h3 class="text-lg font-bold mb-2 text-gray-800">Confirmar Exclusão</h3>
+            <p class="mb-6 text-gray-600">Tem certeza que deseja deletar a escala <strong id="delete-schedule-name" class="text-red-600"></strong>? Esta ação não pode ser desfeita.</p>
+            <div class="mt-6 flex justify-end gap-4">
+                <button id="delete-cancel-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
+                <button id="delete-confirm-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Deletar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notification -->
     <div id="toast-notification" class="fixed bottom-5 right-5 bg-green-500 text-white py-3 px-6 rounded-lg shadow-lg opacity-0 transform translate-y-10">
         <i class="fas fa-check-circle mr-2"></i>
@@ -170,7 +186,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const SHIFT_CONFIG = {
             'A': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Manhã' }, 'B': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Tarde' }, 'C': { hours: 8, color: 'bg-blue-200', text: 'text-blue-800', name: 'Noite' }, 'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Hor. Adm.' }, 'X': { hours: 0, color: 'bg-gray-200', text: 'text-gray-800', name: 'Folga' }, 'FE': { hours: 0, color: 'bg-pink-200', text: 'text-pink-800', name: 'Férias' }, 'FC': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Folga Comp.' }, 'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Folga Feriado' }, '---': { hours: 0, color: 'bg-gray-100', text: 'text-gray-500', name: 'Vazio' }
@@ -178,7 +194,7 @@
 
         let scheduleData = [], dateHeaders = [], monthName = '', year = '', originalCsvLines = [], isSwapMode = false, firstSelection = null, currentEditCell = null, currentScheduleId = null;
         
-        const fileInput = document.getElementById('csv-upload'), initialMessage = document.getElementById('initial-message'), summarySection = document.getElementById('summary-section'), mainContent = document.getElementById('main-content'), statsSection = document.getElementById('stats-section'), scheduleTable = document.getElementById('schedule-table'), operatorStatsContainer = document.getElementById('operator-stats'), exportButton = document.getElementById('export-csv'), swapShiftsBtn = document.getElementById('swap-shifts-btn'), editModal = document.getElementById('edit-modal'), modalOperator = document.getElementById('modal-operator'), modalDate = document.getElementById('modal-date'), modalShiftSelect = document.getElementById('modal-shift-select'), modalSave = document.getElementById('modal-save'), modalCancel = document.getElementById('modal-cancel'), savedSchedulesList = document.getElementById('saved-schedules-list'), loadingSchedules = document.getElementById('loading-schedules'), appContent = document.getElementById('app-content'), loginBtn = document.getElementById('login-btn'), logoutBtn = document.getElementById('logout-btn'), userInfo = document.getElementById('user-info');
+        const fileInput = document.getElementById('csv-upload'), initialMessage = document.getElementById('initial-message'), summarySection = document.getElementById('summary-section'), mainContent = document.getElementById('main-content'), statsSection = document.getElementById('stats-section'), scheduleTable = document.getElementById('schedule-table'), operatorStatsContainer = document.getElementById('operator-stats'), exportButton = document.getElementById('export-csv'), swapShiftsBtn = document.getElementById('swap-shifts-btn'), editModal = document.getElementById('edit-modal'), modalOperator = document.getElementById('modal-operator'), modalDate = document.getElementById('modal-date'), modalShiftSelect = document.getElementById('modal-shift-select'), modalSave = document.getElementById('modal-save'), modalCancel = document.getElementById('modal-cancel'), savedSchedulesList = document.getElementById('saved-schedules-list'), loadingSchedules = document.getElementById('loading-schedules'), appContent = document.getElementById('app-content'), loginBtn = document.getElementById('login-btn'), logoutBtn = document.getElementById('logout-btn'), userInfo = document.getElementById('user-info'), deleteScheduleBtn = document.getElementById('delete-schedule-btn'), deleteConfirmModal = document.getElementById('delete-confirm-modal'), deleteScheduleName = document.getElementById('delete-schedule-name'), deleteCancelBtn = document.getElementById('delete-cancel-btn'), deleteConfirmBtn = document.getElementById('delete-confirm-btn');
 
         let auth, db, userId, projectId;
 
@@ -506,6 +522,34 @@
                 await saveScheduleToFirestore();
             }
         }
+
+        function showDeleteConfirmModal() {
+            if (!currentScheduleId) return;
+            deleteScheduleName.textContent = currentScheduleId;
+            deleteConfirmModal.classList.remove('hidden');
+        }
+
+        async function handleDeleteSchedule() {
+            if (!userId || !currentScheduleId) return;
+            try {
+                const scheduleRef = doc(db, `artifacts/${projectId}/schedules`, currentScheduleId);
+                await deleteDoc(scheduleRef);
+                showToast("Escala deletada com sucesso!");
+                deleteConfirmModal.classList.add('hidden');
+                resetUI();
+                await loadSavedSchedules();
+            } catch (error) {
+                console.error("Error deleting schedule:", error);
+                showToast("Erro ao deletar a escala.", true);
+            }
+        }
+
+        function resetUI() {
+            summarySection.classList.add('hidden');
+            mainContent.classList.add('hidden');
+            statsSection.classList.add('hidden');
+            scheduleData = []; dateHeaders = []; monthName = ''; year = ''; originalCsvLines = []; currentScheduleId = null;
+        }
         
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast-notification'), toastMessage = document.getElementById('toast-message');
@@ -553,9 +597,11 @@
         swapShiftsBtn.addEventListener('click', toggleSwapMode);
         modalCancel.addEventListener('click', () => editModal.classList.add('hidden'));
         modalSave.addEventListener('click', saveShiftChange);
+        deleteScheduleBtn.addEventListener('click', showDeleteConfirmModal);
+        deleteCancelBtn.addEventListener('click', () => deleteConfirmModal.classList.add('hidden'));
+        deleteConfirmBtn.addEventListener('click', handleDeleteSchedule);
 
         initializeFirebase();
     </script>
 </body>
 </html>
-
