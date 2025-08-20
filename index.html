@@ -242,8 +242,6 @@
 
         async function saveScheduleToFirestore() {
             if (!userId || !currentScheduleId) return;
-            // Usar um appId genérico para o caminho do documento, já que o específico pode não estar definido fora do ambiente original
-            const effectiveAppId = typeof __app_id !== 'undefined' ? __app_id : 'dashboard-escala-app';
             const schedulePayload = {
                 scheduleData,
                 dateHeaders,
@@ -253,7 +251,8 @@
                 lastUpdated: new Date().toISOString()
             };
             try {
-                const scheduleRef = doc(db, `artifacts/${effectiveAppId}/users/${userId}/schedules`, currentScheduleId);
+                // CORREÇÃO: Usar a variável 'appId' global que foi definida durante a inicialização.
+                const scheduleRef = doc(db, `artifacts/${appId}/users/${userId}/schedules`, currentScheduleId);
                 await setDoc(scheduleRef, schedulePayload);
                 showToast("Escala salva com sucesso!");
                 await loadSavedSchedules(); // Refresh the list of saved schedules
@@ -265,9 +264,9 @@
 
         async function loadSavedSchedules() {
             if (!userId) return;
-            const effectiveAppId = typeof __app_id !== 'undefined' ? __app_id : 'dashboard-escala-app';
             try {
-                const schedulesCol = collection(db, `artifacts/${effectiveAppId}/users/${userId}/schedules`);
+                // CORREÇÃO: Usar a variável 'appId' global.
+                const schedulesCol = collection(db, `artifacts/${appId}/users/${userId}/schedules`);
                 const scheduleSnapshot = await getDocs(schedulesCol);
                 savedSchedulesList.innerHTML = ''; // Clear current list
                 if (scheduleSnapshot.empty) {
@@ -275,7 +274,6 @@
                     savedSchedulesList.appendChild(loadingSchedules);
                 } else {
                     const schedules = scheduleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    // Sort schedules, maybe by date in the future
                     schedules.forEach(schedule => {
                         const button = document.createElement('button');
                         button.className = "bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors";
@@ -292,9 +290,9 @@
         }
         
         async function loadScheduleFromFirestore(scheduleId) {
-            const effectiveAppId = typeof __app_id !== 'undefined' ? __app_id : 'dashboard-escala-app';
             try {
-                const scheduleRef = doc(db, `artifacts/${effectiveAppId}/users/${userId}/schedules`, scheduleId);
+                // CORREÇÃO: Usar a variável 'appId' global.
+                const scheduleRef = doc(db, `artifacts/${appId}/users/${userId}/schedules`, scheduleId);
                 const docSnap = await getDoc(scheduleRef);
 
                 if (docSnap.exists()) {
@@ -617,4 +615,4 @@
         initializeFirebase();
     </script>
 </body>
-</html>
+</ht
