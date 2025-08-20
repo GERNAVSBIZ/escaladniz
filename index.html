@@ -365,6 +365,11 @@
             const MONTH_MAP = { 'JANEIRO': 0, 'FEVEREIRO': 1, 'MARÇO': 2, 'ABRIL': 3, 'MAIO': 4, 'JUNHO': 5, 'JULHO': 6, 'AGOSTO': 7, 'SETEMBRO': 8, 'OUTUBRO': 9, 'NOVEMBRO': 10, 'DEZEMBRO': 11 };
             const monthIndex = MONTH_MAP[monthName.toUpperCase()];
             const dayStatus = getDayStatusArray();
+            
+            const today = new Date();
+            const currentDay = today.getDate();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
 
             let html = '<thead class="sticky top-0 z-20"><tr class="bg-gray-200"><th class="p-2 font-semibold text-left sticky left-0 bg-gray-200 z-30" rowspan="2">Operador</th>';
             dateHeaders.forEach((day, index) => {
@@ -381,8 +386,11 @@
             });
             html += '</tr><tr class="bg-gray-100">';
             dateHeaders.forEach((day, index) => {
-                const headerColor = dayStatus[index] === 'current' ? '' : 'text-gray-400';
-                html += `<th class="p-2 font-semibold text-sm ${headerColor}">${day}</th>`;
+                const isCurrentMonthDay = dayStatus[index] === 'current';
+                const isToday = isCurrentMonthDay && parseInt(day) === currentDay && monthIndex === currentMonth && parseInt(year) === currentYear;
+                const headerColor = isCurrentMonthDay ? '' : 'text-gray-400';
+                const todayHeaderClass = isToday ? 'bg-blue-500 text-white rounded-full' : '';
+                html += `<th class="p-2 font-semibold text-sm ${headerColor}"><span class="inline-block w-6 h-6 leading-6 ${todayHeaderClass}">${day}</span></th>`;
             });
             html += '</tr></thead><tbody>';
             scheduleData.forEach((operator, opIndex) => {
@@ -390,10 +398,12 @@
                 operator.shifts.forEach((shift, dayIndex) => {
                     const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
                     const isCurrentMonthDay = dayStatus[dayIndex] === 'current';
+                    const isToday = isCurrentMonthDay && parseInt(dateHeaders[dayIndex]) === currentDay && monthIndex === currentMonth && parseInt(year) === currentYear;
                     const bgColor = isCurrentMonthDay ? config.color : 'bg-gray-200';
                     const textColor = isCurrentMonthDay ? config.text : 'text-gray-500';
+                    const todayCellClass = isToday ? 'ring-2 ring-blue-500 z-10' : '';
 
-                    html += `<td class="p-0 border-r last:border-r-0"><div class="w-full h-full p-2 font-mono font-bold cursor-pointer transition-transform transform hover:scale-110 ${bgColor} ${textColor}" data-op-index="${opIndex}" data-day-index="${dayIndex}" onclick="handleCellClick(this)">${shift}</div></td>`;
+                    html += `<td class="p-0 border-r last:border-r-0"><div class="relative w-full h-full p-2 font-mono font-bold cursor-pointer transition-transform transform hover:scale-110 ${bgColor} ${textColor} ${todayCellClass}" data-op-index="${opIndex}" data-day-index="${dayIndex}" onclick="handleCellClick(this)">${shift}</div></td>`;
                 });
                 html += `</tr>`;
             });
@@ -407,7 +417,6 @@
             const operatorStats = scheduleData.map(operator => {
                 let workedHours = 0, workDays = 0, offDays = 0, vacationDays = 0;
                 operator.shifts.forEach((shift, index) => {
-                    // ALTERAÇÃO: Contabiliza apenas se for um dia do mês atual
                     if (dayStatus[index] === 'current') {
                         const config = SHIFT_CONFIG[shift];
                         if (config) {
@@ -496,12 +505,6 @@
                 renderTable();
                 await saveScheduleToFirestore();
             }
-        }
-
-        function updateCellUI(cell, newShift) {
-            const config = SHIFT_CONFIG[newShift] || SHIFT_CONFIG['---'];
-            cell.className = `w-full h-full p-2 font-mono font-bold cursor-pointer transition-transform transform hover:scale-110 ${config.color} ${config.text}`;
-            cell.textContent = newShift;
         }
         
         function showToast(message, isError = false) {
