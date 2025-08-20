@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Escala de Serviço</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        #table-container {
+            max-height: 70vh;
+            overflow: auto;
+        }
+        .selected-for-swap {
+            outline: 3px solid #3b82f6;
+            outline-offset: -2px;
+            border-radius: 2px;
+        }
+        #toast-notification {
+            transition: opacity 0.5s, transform 0.5s;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6">
+            <div class="text-center md:text-left">
+                <!-- Para a imagem aparecer, faça o upload do arquivo 'dniz.png' para o seu repositório no GitHub -->
+                <img src="dniz.png" alt="Logo DNIZ" class="h-12 mx-auto md:mx-0" onerror="this.onerror=null;this.src='https://placehold.co/120x50/ffffff/000000?text=DNIZ';">
+                <h1 class="text-2xl font-bold text-gray-800 mt-1">ESCALAS DNIZ</h1>
+            </div>
+            <div id="auth-container" class="mt-4 md:mt-0 flex items-center gap-4">
+                <p id="user-info" class="text-sm font-medium text-gray-600 hidden"></p>
+                <button id="login-btn" class="bg-white text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors shadow-sm flex items-center gap-2">
+                    <i class="fab fa-google"></i> Login com Google
+                </button>
+                <button id="logout-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors shadow-sm hidden">
+                    Sair
+                </button>
+            </div>
+        </header>
+
+        <!-- Main app content, hidden until login -->
+        <div id="app-content" class="hidden">
+            <div class="flex justify-end mb-4">
+                 <label for="csv-upload" class="cursor-pointer bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center gap-2">
+                    <i class="fas fa-upload"></i>
+                    Carregar Nova Escala (CSV)
+                </label>
+                <input type="file" id="csv-upload" class="hidden" accept=".csv">
+            </div>
+
+            <!-- Saved Schedules Section -->
+            <section id="saved-schedules-section" class="mb-8">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Escalas Salvas (Compartilhadas)</h2>
+                <div id="saved-schedules-list" class="flex flex-wrap gap-3 items-center">
+                    <p id="loading-schedules" class="text-gray-500">Carregando escalas salvas...</p>
+                </div>
+            </section>
+
+            <!-- Summary Cards -->
+            <div id="summary-section" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 hidden">
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
+                    <div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-users fa-2x text-indigo-600"></i></div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Operadores</p>
+                        <p id="total-operators" class="text-2xl font-bold text-gray-800">0</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
+                    <div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-briefcase fa-2x text-purple-600"></i></div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Turnos de Trabalho</p>
+                        <p id="total-shifts" class="text-2xl font-bold text-gray-800">0</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
+                    <div class="bg-sky-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-sky-600"></i></div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Mês da Escala</p>
+                        <p id="scale-month" class="text-2xl font-bold text-gray-800">-</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
+                    <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-hourglass-half fa-2x text-amber-600"></i></div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Horas Totais</p>
+                        <p id="total-hours" class="text-2xl font-bold text-gray-800">0h</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Content: Schedule -->
+            <main id="main-content" class="bg-white p-6 rounded-xl shadow-lg hidden">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                    <h2 id="table-title" class="text-xl font-semibold text-gray-700">Escala Mensal</h2>
+                    <div class="flex gap-2">
+                        <button id="swap-shifts-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-md flex items-center gap-2">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span id="swap-btn-text">Trocar Turnos</span>
+                        </button>
+                        <button id="export-csv" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors shadow-md flex items-center gap-2">
+                            <i class="fas fa-file-download"></i>
+                            Exportar CSV
+                        </button>
+                    </div>
+                </div>
+                <div id="table-container" class="custom-scrollbar border border-gray-200 rounded-lg">
+                    <table id="schedule-table" class="w-full text-center text-sm"></table>
+                </div>
+            </main>
+
+            <!-- Operator Statistics -->
+            <section id="stats-section" class="mt-8 hidden">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Estatísticas do Mês</h2>
+                <div id="operator-stats" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+            </section>
+        </div>
+
+        <!-- Initial Message -->
+        <div id="initial-message" class="text-center py-20">
+            <i class="fas fa-sign-in-alt fa-4x text-gray-400 mb-4"></i>
+            <h2 class="text-2xl font-semibold text-gray-600">Bem-vindo!</h2>
+            <p class="text-gray-500 mt-2">Faça login com sua conta Google para gerenciar as escalas.</p>
+        </div>
+    </div>
+
+    <!-- Edit Shift Modal -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-4">Alterar Turno</h3>
+            <p class="mb-2"><strong>Operador:</strong> <span id="modal-operator"></span></p>
+            <p class="mb-4"><strong>Data:</strong> <span id="modal-date"></span></p>
+            <select id="modal-shift-select" class="w-full p-2 border rounded-md"></select>
+            <div class="mt-6 flex justify-end gap-4">
+                <button id="modal-cancel" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
+                <button id="modal-save" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="fixed bottom-5 right-5 bg-green-500 text-white py-3 px-6 rounded-lg shadow-lg opacity-0 transform translate-y-10">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const SHIFT_CONFIG = {
+            'A': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Manhã' }, 'B': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Tarde' }, 'C': { hours: 8, color: 'bg-blue-200', text: 'text-blue-800', name: 'Noite' }, 'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Hor. Adm.' }, 'X': { hours: 0, color: 'bg-gray-200', text: 'text-gray-800', name: 'Folga' }, 'FE': { hours: 0, color: 'bg-pink-200', text: 'text-pink-800', name: 'Férias' }, 'FC': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Folga Comp.' }, 'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Folga Feriado' }, '---': { hours: 0, color: 'bg-gray-100', text: 'text-gray-500', name: 'Vazio' }
+        };
+
+        let scheduleData = [], dateHeaders = [], monthName = '', year = '', originalCsvLines = [], isSwapMode = false, firstSelection = null, currentEditCell = null, currentScheduleId = null;
+        
+        const fileInput = document.getElementById('csv-upload'), initialMessage = document.getElementById('initial-message'), summarySection = document.getElementById('summary-section'), mainContent = document.getElementById('main-content'), statsSection = document.getElementById('stats-section'), scheduleTable = document.getElementById('schedule-table'), operatorStatsContainer = document.getElementById('operator-stats'), exportButton = document.getElementById('export-csv'), swapShiftsBtn = document.getElementById('swap-shifts-btn'), editModal = document.getElementById('edit-modal'), modalOperator = document.getElementById('modal-operator'), modalDate = document.getElementById('modal-date'), modalShiftSelect = document.getElementById('modal-shift-select'), modalSave = document.getElementById('modal-save'), modalCancel = document.getElementById('modal-cancel'), savedSchedulesList = document.getElementById('saved-schedules-list'), loadingSchedules = document.getElementById('loading-schedules'), appContent = document.getElementById('app-content'), loginBtn = document.getElementById('login-btn'), logoutBtn = document.getElementById('logout-btn'), userInfo = document.getElementById('user-info');
+
+        let auth, db, userId, projectId;
+
+        async function initializeFirebase() {
+            try {
+                const firebaseConfig = {
+                  apiKey: "AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k", authDomain: "dashboard-escala.firebaseapp.com", projectId: "dashboard-escala", storageBucket: "dashboard-escala.appspot.com", messagingSenderId: "451393122794", appId: "1:451393122794:web:24f125f11ef3260b770293"
+                };
+                projectId = firebaseConfig.projectId;
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                handleAuthState();
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                initialMessage.innerHTML = `<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase. Verifique a configuração.</p>`;
+            }
+        }
+
+        function handleAuthState() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    userInfo.textContent = `Olá, ${user.displayName || 'Usuário'}`;
+                    loginBtn.classList.add('hidden');
+                    userInfo.classList.remove('hidden');
+                    logoutBtn.classList.remove('hidden');
+                    appContent.classList.remove('hidden');
+                    initialMessage.classList.add('hidden');
+                    await loadSavedSchedules();
+                } else {
+                    userId = null;
+                    loginBtn.classList.remove('hidden');
+                    userInfo.classList.add('hidden');
+                    logoutBtn.classList.add('hidden');
+                    appContent.classList.add('hidden');
+                    initialMessage.classList.remove('hidden');
+                }
+            });
+        }
+
+        async function handleLogin() {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("Google sign-in failed:", error);
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Sign out failed:", error);
+            }
+        }
+
+        async function saveScheduleToFirestore() {
+            if (!userId || !currentScheduleId) return;
+            const schedulePayload = { scheduleData, dateHeaders, monthName, year, originalCsvLines, lastUpdated: new Date().toISOString() };
+            try {
+                const scheduleRef = doc(db, `artifacts/${projectId}/schedules`, currentScheduleId);
+                await setDoc(scheduleRef, schedulePayload);
+                showToast("Escala salva com sucesso!");
+                await loadSavedSchedules();
+            } catch (error) {
+                console.error("Error saving schedule to Firestore:", error);
+                showToast("Erro ao salvar a escala.", true);
+            }
+        }
+
+        async function loadSavedSchedules() {
+            if (!userId) return;
+            try {
+                const schedulesCol = collection(db, `artifacts/${projectId}/schedules`);
+                const scheduleSnapshot = await getDocs(schedulesCol);
+                savedSchedulesList.innerHTML = '';
+                if (scheduleSnapshot.empty) {
+                    savedSchedulesList.innerHTML = '<p class="text-gray-500">Nenhuma escala salva encontrada.</p>';
+                } else {
+                    const schedules = scheduleSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    schedules.forEach(schedule => {
+                        const button = document.createElement('button');
+                        button.className = "bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-100";
+                        button.textContent = schedule.id;
+                        button.onclick = () => loadScheduleFromFirestore(schedule.id);
+                        savedSchedulesList.appendChild(button);
+                    });
+                }
+            } catch (error) {
+                console.error("Error loading saved schedules:", error);
+                savedSchedulesList.innerHTML = '<p class="text-red-500">Erro ao carregar escalas.</p>';
+            }
+        }
+        
+        async function loadScheduleFromFirestore(scheduleId) {
+            try {
+                const scheduleRef = doc(db, `artifacts/${projectId}/schedules`, scheduleId);
+                const docSnap = await getDoc(scheduleRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    ({ scheduleData, dateHeaders, monthName, year, originalCsvLines } = data);
+                    currentScheduleId = scheduleId;
+                    displayData();
+                }
+            } catch(error) {
+                console.error("Error loading schedule from Firestore:", error);
+            }
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                originalCsvLines = e.target.result.split(/\r\n?|\n/);
+                parseCSV(originalCsvLines);
+                if (scheduleData.length > 0) {
+                    currentScheduleId = `${year}-${monthName.toUpperCase()}`;
+                    displayData();
+                    await saveScheduleToFirestore();
+                } else {
+                    alert("Não foi possível processar o arquivo CSV.");
+                }
+            };
+            reader.readAsText(file, 'ISO-8859-1');
+        }
+
+        function parseCSV(lines) {
+            scheduleData = []; dateHeaders = []; year = ''; monthName = '';
+            let DATE_ROW = -1, OPERATOR_DATA_START_ROW = -1;
+            for (let i = 10; i < lines.length; i++) {
+                const parts = lines[i].split(';');
+                if (parts[0].trim() === '' && parts.length > 15 && !isNaN(parseInt(parts[1]?.trim(), 10))) {
+                    DATE_ROW = i; OPERATOR_DATA_START_ROW = i + 1; break;
+                }
+            }
+            if (DATE_ROW === -1) { console.error("Cabeçalho de data não localizado."); return; }
+            try {
+                const monthLine = lines[0].split(';')[0].trim();
+                if (monthLine) monthName = monthLine.charAt(0).toUpperCase() + monthLine.slice(1).toLowerCase();
+                const yearLine = lines[3].split(';')[0].trim();
+                if (/^20\d{2}$/.test(yearLine)) year = yearLine;
+            } catch (e) { console.error("Erro ao ler metadados."); }
+            dateHeaders = lines[DATE_ROW].split(';').slice(1).map(d => d.trim().replace(/"/g, '')).filter(d => d && !isNaN(d));
+            if (dateHeaders.length === 0) { console.error("Datas válidas não encontradas."); return; }
+            for (let i = OPERATOR_DATA_START_ROW; i < lines.length; i++) {
+                const line = lines[i].trim(); if (!line) continue;
+                const parts = line.split(';');
+                const operatorName = parts[0].trim().replace(/"/g, '');
+                if (operatorName && operatorName.length > 2 && isNaN(operatorName)) {
+                    const shifts = parts.slice(1, dateHeaders.length + 1).map(s => {
+                        const cleanedShift = s.trim().replace(/"/g, '');
+                        return SHIFT_CONFIG.hasOwnProperty(cleanedShift) ? cleanedShift : '---';
+                    });
+                    if (shifts.length === dateHeaders.length) scheduleData.push({ name: operatorName, shifts });
+                }
+            }
+        }
+        
+        function displayData() {
+            summarySection.classList.remove('hidden'); mainContent.classList.remove('hidden'); statsSection.classList.remove('hidden');
+            document.getElementById('table-title').textContent = `Escala Mensal - ${monthName} ${year}`;
+            renderTable(); updateAllStats(); populateModalSelect();
+        }
+
+        function renderTable() {
+            const MONTH_MAP = { 'JANEIRO': 0, 'FEVEREIRO': 1, 'MARÇO': 2, 'ABRIL': 3, 'MAIO': 4, 'JUNHO': 5, 'JULHO': 6, 'AGOSTO': 7, 'SETEMBRO': 8, 'OUTUBRO': 9, 'NOVEMBRO': 10, 'DEZEMBRO': 11 };
+            const monthIndex = MONTH_MAP[monthName.toUpperCase()];
+            
+            // Lógica para identificar dias do mês atual vs. outros meses
+            const dayStatus = [];
+            let currentStatus = 'previous';
+            for (let i = 0; i < dateHeaders.length; i++) {
+                if (i > 0 && parseInt(dateHeaders[i]) < parseInt(dateHeaders[i-1])) {
+                    currentStatus = (currentStatus === 'previous') ? 'current' : 'next';
+                }
+                // Caso especial para o primeiro dia "1"
+                if (dateHeaders[i] === '1' && currentStatus === 'previous') {
+                    currentStatus = 'current';
+                }
+                dayStatus.push(currentStatus);
+            }
+
+            let html = '<thead class="sticky top-0 z-20"><tr class="bg-gray-200"><th class="p-2 font-semibold text-left sticky left-0 bg-gray-200 z-30" rowspan="2">Operador</th>';
+            dateHeaders.forEach((day, index) => {
+                let weekDay = '';
+                if (year && monthIndex !== undefined) {
+                    // Lógica para calcular a data correta para dias de outros meses
+                    let effectiveMonth = monthIndex;
+                    if (dayStatus[index] === 'previous') effectiveMonth -= 1;
+                    if (dayStatus[index] === 'next') effectiveMonth += 1;
+                    const date = new Date(year, effectiveMonth, parseInt(day));
+                    if (!isNaN(date.getTime())) weekDay = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3);
+                }
+                const headerColor = dayStatus[index] === 'current' ? 'text-gray-600' : 'text-gray-400';
+                html += `<th class="p-1 font-medium text-xs ${headerColor}">${weekDay}</th>`;
+            });
+            html += '</tr><tr class="bg-gray-100">';
+            dateHeaders.forEach((day, index) => {
+                const headerColor = dayStatus[index] === 'current' ? '' : 'text-gray-400';
+                html += `<th class="p-2 font-semibold text-sm ${headerColor}">${day}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            scheduleData.forEach((operator, opIndex) => {
+                html += `<tr class="border-b last:border-b-0 hover:bg-gray-50"><td class="p-2 font-medium text-gray-800 text-left sticky left-0 bg-white hover:bg-gray-50 z-10 whitespace-nowrap border-r">${operator.name}</td>`;
+                operator.shifts.forEach((shift, dayIndex) => {
+                    const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
+                    const isCurrentMonthDay = dayStatus[dayIndex] === 'current';
+                    const bgColor = isCurrentMonthDay ? config.color : 'bg-gray-200';
+                    const textColor = isCurrentMonthDay ? config.text : 'text-gray-500';
+
+                    html += `<td class="p-0 border-r last:border-r-0"><div class="w-full h-full p-2 font-mono font-bold cursor-pointer transition-transform transform hover:scale-110 ${bgColor} ${textColor}" data-op-index="${opIndex}" data-day-index="${dayIndex}" onclick="handleCellClick(this)">${shift}</div></td>`;
+                });
+                html += `</tr>`;
+            });
+            html += '</tbody>'; scheduleTable.innerHTML = html;
+        }
+
+        function updateAllStats() {
+            let totalOperators = scheduleData.length, totalShifts = 0, totalHours = 0;
+            const operatorStats = scheduleData.map(operator => {
+                let workedHours = 0, workDays = 0, offDays = 0, vacationDays = 0;
+                operator.shifts.forEach(shift => {
+                    const config = SHIFT_CONFIG[shift];
+                    if (config) {
+                        workedHours += config.hours;
+                        if (config.hours > 0) { workDays++; totalShifts++; }
+                        else if (['X', 'FC', 'FF'].includes(shift)) { offDays++; }
+                        else if (shift === 'FE') { vacationDays++; }
+                    }
+                });
+                totalHours += workedHours;
+                return { name: operator.name, workedHours, workDays, offDays, vacationDays };
+            });
+            document.getElementById('total-operators').textContent = totalOperators; document.getElementById('total-shifts').textContent = totalShifts; document.getElementById('total-hours').textContent = `${totalHours}h`; document.getElementById('scale-month').textContent = `${monthName} ${year}`;
+            renderOperatorStats(operatorStats);
+        }
+
+        function renderOperatorStats(stats) {
+            let html = '';
+            stats.forEach(stat => {
+                html += `<div class="bg-white p-4 rounded-xl shadow-lg"><h3 class="font-bold text-gray-800">${stat.name}</h3><p class="text-3xl font-bold text-indigo-600 my-2">${stat.workedHours}h</p><div class="text-xs text-gray-500 flex justify-between"><span>Trabalho: ${stat.workDays}</span><span>Folgas: ${stat.offDays}</span><span>Férias: ${stat.vacationDays}</span></div></div>`;
+            });
+            operatorStatsContainer.innerHTML = html;
+        }
+        
+        function populateModalSelect() {
+            modalShiftSelect.innerHTML = Object.entries(SHIFT_CONFIG).map(([key, { name }]) => `<option value="${key}">${key} - ${name}</option>`).join('');
+        }
+
+        window.handleCellClick = function(cell) {
+            if (isSwapMode) { handleSwapSelection(cell); } else { openEditModal(cell); }
+        }
+
+        function openEditModal(cell) {
+            currentEditCell = cell;
+            const { opIndex, dayIndex } = cell.dataset;
+            const operator = scheduleData[opIndex];
+            modalOperator.textContent = operator.name;
+            modalDate.textContent = `${dateHeaders[dayIndex]} de ${monthName}`;
+            modalShiftSelect.value = operator.shifts[dayIndex];
+            editModal.classList.remove('hidden');
+        }
+
+        async function saveShiftChange() {
+            if (!currentEditCell) return;
+            const { opIndex, dayIndex } = currentEditCell.dataset;
+            const newShift = modalShiftSelect.value;
+            scheduleData[opIndex].shifts[dayIndex] = newShift;
+            editModal.classList.add('hidden');
+            updateAllStats(); // Update stats before re-rendering table
+            renderTable(); // Re-render table to apply correct colors
+            await saveScheduleToFirestore();
+        }
+
+        function toggleSwapMode() {
+            isSwapMode = !isSwapMode;
+            const swapBtnText = document.getElementById('swap-btn-text');
+            if (isSwapMode) {
+                swapShiftsBtn.classList.replace('bg-blue-600', 'bg-red-600'); swapShiftsBtn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
+                swapBtnText.textContent = 'Cancelar Troca';
+                scheduleTable.style.cursor = 'cell';
+            } else {
+                swapShiftsBtn.classList.replace('bg-red-600', 'bg-blue-600'); swapShiftsBtn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+                swapBtnText.textContent = 'Trocar Turnos';
+                scheduleTable.style.cursor = 'default';
+                if (firstSelection) { firstSelection.element.classList.remove('selected-for-swap'); firstSelection = null; }
+            }
+        }
+
+        async function handleSwapSelection(cell) {
+            if (!firstSelection) {
+                firstSelection = { opIndex: cell.dataset.opIndex, dayIndex: cell.dataset.dayIndex, element: cell };
+                cell.classList.add('selected-for-swap');
+            } else {
+                const secondSelection = { opIndex: cell.dataset.opIndex, dayIndex: cell.dataset.dayIndex, element: cell };
+                if (firstSelection.opIndex === secondSelection.opIndex && firstSelection.dayIndex === secondSelection.dayIndex) return;
+                const shift1 = scheduleData[firstSelection.opIndex].shifts[firstSelection.dayIndex];
+                const shift2 = scheduleData[secondSelection.opIndex].shifts[secondSelection.dayIndex];
+                scheduleData[firstSelection.opIndex].shifts[firstSelection.dayIndex] = shift2;
+                scheduleData[secondSelection.opIndex].shifts[secondSelection.dayIndex] = shift1;
+                
+                firstSelection.element.classList.remove('selected-for-swap');
+                firstSelection = null;
+                toggleSwapMode();
+                updateAllStats();
+                renderTable(); // Re-render table to apply correct colors
+                await saveScheduleToFirestore();
+            }
+        }
+
+        function updateCellUI(cell, newShift) {
+            const config = SHIFT_CONFIG[newShift] || SHIFT_CONFIG['---'];
+            cell.className = `w-full h-full p-2 font-mono font-bold cursor-pointer transition-transform transform hover:scale-110 ${config.color} ${config.text}`;
+            cell.textContent = newShift;
+        }
+        
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast-notification'), toastMessage = document.getElementById('toast-message');
+            toast.classList.toggle('bg-red-500', isError); toast.classList.toggle('bg-green-500', !isError);
+            toastMessage.textContent = message;
+            toast.classList.remove('opacity-0', 'translate-y-10');
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-10'); }, 3000);
+        }
+
+        function exportToCSV() {
+            if (!originalCsvLines || originalCsvLines.length === 0) { alert("Não há dados para exportar."); return; }
+            let updatedCsvLines = [...originalCsvLines];
+            let DATE_ROW = -1, OPERATOR_DATA_START_ROW = -1;
+             for (let i = 10; i < updatedCsvLines.length; i++) {
+                const parts = updatedCsvLines[i].split(';');
+                if (parts[0].trim() === '' && parts.length > 15 && !isNaN(parseInt(parts[1]?.trim(), 10))) {
+                    DATE_ROW = i; OPERATOR_DATA_START_ROW = i + 1; break;
+                }
+            }
+            if(OPERATOR_DATA_START_ROW === -1) { alert("Não foi possível encontrar a linha inicial dos operadores."); return; }
+            scheduleData.forEach((operator, opIndex) => {
+                const rowIndex = OPERATOR_DATA_START_ROW + opIndex;
+                if(updatedCsvLines[rowIndex]) {
+                    let parts = updatedCsvLines[rowIndex].split(';');
+                    parts[0] = operator.name;
+                    operator.shifts.forEach((shift, dayIndex) => { parts[dayIndex + 1] = shift; });
+                    updatedCsvLines[rowIndex] = parts.join(';');
+                }
+            });
+            const csvContent = updatedCsvLines.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `escala_atualizada_${monthName.toLowerCase()}_${year}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        loginBtn.addEventListener('click', handleLogin);
+        logoutBtn.addEventListener('click', handleLogout);
+        fileInput.addEventListener('change', handleFileUpload);
+        exportButton.addEventListener('click', exportToCSV);
+        swapShiftsBtn.addEventListener('click', toggleSwapMode);
+        modalCancel.addEventListener('click', () => editModal.classList.add('hidden'));
+        modalSave.addEventListener('click', saveShiftChange);
+
+        initializeFirebase();
+    </script>
+</body>
+</html>
