@@ -8,37 +8,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
-        }
-        #table-container {
-            max-height: 70vh;
-            overflow: auto;
-        }
-        .selected-for-swap {
-            outline: 3px solid #3b82f6;
-            outline-offset: -2px;
-            border-radius: 2px;
-        }
-        #toast-notification {
-            transition: opacity 0.5s, transform 0.5s;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+        #table-container { max-height: 70vh; overflow: auto; }
+        .selected-for-swap { outline: 3px solid #3b82f6; outline-offset: -2px; border-radius: 2px; }
+        #toast-notification { transition: opacity 0.5s, transform 0.5s; }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -60,6 +37,15 @@
             </div>
         </header>
 
+        <!-- Admin Panel -->
+        <section id="admin-panel" class="mb-8 bg-orange-100 border-l-4 border-orange-500 p-4 rounded-lg hidden">
+            <h2 class="text-xl font-semibold text-orange-800 mb-4">Painel do Administrador</h2>
+            <h3 class="font-semibold text-gray-700 mb-2">Usuários Pendentes de Aprovação:</h3>
+            <div id="pending-users-list" class="space-y-2">
+                <p class="text-gray-500">Nenhum usuário pendente.</p>
+            </div>
+        </section>
+
         <!-- Main app content, hidden until login -->
         <div id="app-content" class="hidden">
              <!-- Notifications Section -->
@@ -73,7 +59,6 @@
                 <input type="file" id="csv-upload" class="hidden" accept=".csv">
             </div>
 
-            <!-- Saved Schedules Section -->
             <section id="saved-schedules-section" class="mb-8">
                 <h2 class="text-xl font-semibold text-gray-700 mb-4">Escalas Salvas (Compartilhadas)</h2>
                 <div id="saved-schedules-list" class="flex flex-wrap gap-3 items-center">
@@ -81,36 +66,11 @@
                 </div>
             </section>
 
-            <!-- Summary Cards -->
             <div id="summary-section" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 hidden">
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
-                    <div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-users fa-2x text-indigo-600"></i></div>
-                    <div>
-                        <p class="text-gray-500 text-sm">Operadores</p>
-                        <p id="total-operators" class="text-2xl font-bold text-gray-800">0</p>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
-                    <div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-briefcase fa-2x text-purple-600"></i></div>
-                    <div>
-                        <p class="text-gray-500 text-sm">Turnos de Trabalho</p>
-                        <p id="total-shifts" class="text-2xl font-bold text-gray-800">0</p>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
-                    <div class="bg-sky-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-sky-600"></i></div>
-                    <div>
-                        <p class="text-gray-500 text-sm">Mês da Escala</p>
-                        <p id="scale-month" class="text-2xl font-bold text-gray-800">-</p>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4">
-                    <div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-hourglass-half fa-2x text-amber-600"></i></div>
-                    <div>
-                        <p class="text-gray-500 text-sm">Horas Totais (Mês)</p>
-                        <p id="total-hours" class="text-2xl font-bold text-gray-800">0h</p>
-                    </div>
-                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-users fa-2x text-indigo-600"></i></div><div><p class="text-gray-500 text-sm">Operadores</p><p id="total-operators" class="text-2xl font-bold text-gray-800">0</p></div></div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-briefcase fa-2x text-purple-600"></i></div><div><p class="text-gray-500 text-sm">Turnos de Trabalho</p><p id="total-shifts" class="text-2xl font-bold text-gray-800">0</p></div></div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-sky-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-sky-600"></i></div><div><p class="text-gray-500 text-sm">Mês da Escala</p><p id="scale-month" class="text-2xl font-bold text-gray-800">-</p></div></div>
+                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-hourglass-half fa-2x text-amber-600"></i></div><div><p class="text-gray-500 text-sm">Horas Totais (Mês)</p><p id="total-hours" class="text-2xl font-bold text-gray-800">0h</p></div></div>
             </div>
             
             <main id="main-content" class="bg-white p-6 rounded-xl shadow-lg hidden">
@@ -137,6 +97,12 @@
             <i class="fas fa-sign-in-alt fa-4x text-gray-400 mb-4"></i>
             <h2 class="text-2xl font-semibold text-gray-600">Bem-vindo!</h2>
             <p class="text-gray-500 mt-2">Faça login com sua conta Google para gerenciar as escalas.</p>
+        </div>
+        
+        <div id="pending-approval-message" class="text-center py-20 hidden">
+            <i class="fas fa-clock fa-4x text-yellow-500 mb-4"></i>
+            <h2 class="text-2xl font-semibold text-gray-600">Aguardando Aprovação</h2>
+            <p class="text-gray-500 mt-2">Sua conta foi registrada e está aguardando a aprovação de um administrador.</p>
         </div>
     </div>
 
@@ -172,28 +138,76 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const SHIFT_CONFIG = { 'A':{hours:8,color:'bg-yellow-200',text:'text-yellow-800',name:'Manhã'},'B':{hours:8,color:'bg-sky-200',text:'text-sky-800',name:'Tarde'},'C':{hours:8,color:'bg-blue-200',text:'text-blue-800',name:'Noite'},'HA':{hours:8,color:'bg-green-200',text:'text-green-800',name:'Hor. Adm.'},'X':{hours:0,color:'bg-gray-200',text:'text-gray-800',name:'Folga'},'FE':{hours:0,color:'bg-pink-200',text:'text-pink-800',name:'Férias'},'FC':{hours:0,color:'bg-purple-200',text:'text-purple-800',name:'Folga Comp.'},'FF':{hours:0,color:'bg-orange-200',text:'text-orange-800',name:'Folga Feriado'},'---':{hours:0,color:'bg-gray-100',text:'text-gray-500',name:'Vazio'}};
         const ADMIN_NAMES = ["Wilkson", "Adriano"];
 
         let scheduleData=[],dateHeaders=[],monthName='',year='',originalCsvLines=[],isSwapMode=false,firstSelection=null,currentEditCell=null,currentScheduleId=null,pendingSwaps=[];
         
-        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons');
+        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons'), adminPanel = document.getElementById('admin-panel'), pendingUsersList = document.getElementById('pending-users-list'), pendingApprovalMessage = document.getElementById('pending-approval-message');
 
         let auth,db,userId,projectId,currentUserDisplayName, isUserAdmin = false;
 
         async function initializeFirebase(){try{const firebaseConfig={apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};projectId=firebaseConfig.projectId;const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);handleAuthState()}catch(error){console.error("Firebase initialization failed:",error);initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase.</p>`}}
         
-        function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;isUserAdmin = currentUserDisplayName && ADMIN_NAMES.some(admin => currentUserDisplayName.toLowerCase().includes(admin.toLowerCase()));userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');appContent.classList.remove('hidden');initialMessage.classList.add('hidden');updateUIVisibility();await loadSavedSchedules();if(currentScheduleId)await loadPendingSwaps()}else{userId=null;currentUserDisplayName=null;isUserAdmin=false;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
+        function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');await checkUserStatus(user)}else{userId=null;currentUserDisplayName=null;isUserAdmin=false;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');adminPanel.classList.add('hidden');pendingApprovalMessage.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
         
+        async function checkUserStatus(user) {
+            const userRef = doc(db, `artifacts/${projectId}/users`, user.uid);
+            const userDoc = await getDoc(userRef);
+
+            if (!userDoc.exists()) {
+                const isAdmin = ADMIN_NAMES.some(admin => user.displayName.toLowerCase().includes(admin.toLowerCase()));
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    displayName: user.displayName,
+                    email: user.email,
+                    status: isAdmin ? 'approved' : 'pending',
+                    isAdmin: isAdmin
+                });
+                if (isAdmin) {
+                    isUserAdmin = true;
+                    showFullApp();
+                } else {
+                    showPendingApprovalMessage();
+                }
+            } else {
+                const userData = userDoc.data();
+                isUserAdmin = userData.isAdmin || false;
+                if (userData.status === 'approved') {
+                    showFullApp();
+                } else {
+                    showPendingApprovalMessage();
+                }
+            }
+        }
+
+        async function showFullApp() {
+            appContent.classList.remove('hidden');
+            initialMessage.classList.add('hidden');
+            pendingApprovalMessage.classList.add('hidden');
+            updateUIVisibility();
+            await loadSavedSchedules();
+            if (currentScheduleId) await loadPendingSwaps();
+            if (isUserAdmin) await loadPendingUsers();
+        }
+
+        function showPendingApprovalMessage() {
+            appContent.classList.add('hidden');
+            initialMessage.classList.add('hidden');
+            pendingApprovalMessage.classList.remove('hidden');
+        }
+
         function updateUIVisibility() {
             if (isUserAdmin) {
                 adminControls.classList.remove('hidden');
                 deleteScheduleBtn.classList.remove('hidden');
+                adminPanel.classList.remove('hidden');
             } else {
                 adminControls.classList.add('hidden');
                 deleteScheduleBtn.classList.add('hidden');
+                adminPanel.classList.add('hidden');
             }
         }
 
@@ -243,6 +257,41 @@
         window.handleAcceptSwap=async function(requestId){const request=pendingSwaps.find(req=>req.id===requestId);if(!request)return;const{initiator,recipient}=request;const shift1=scheduleData[initiator.opIndex].shifts[initiator.dayIndex];const shift2=scheduleData[recipient.opIndex].shifts[recipient.dayIndex];scheduleData[initiator.opIndex].shifts[initiator.dayIndex]=shift2;scheduleData[recipient.opIndex].shifts[recipient.dayIndex]=shift1;await saveScheduleToFirestore();await deleteSwapRequest(requestId);showToast("Troca de turno aceita e efetivada!")}
         window.handleDeclineSwap=async function(requestId){await deleteSwapRequest(requestId);showToast("Solicitação de troca recusada.")}
         async function deleteSwapRequest(requestId){try{const requestRef=doc(db,`artifacts/${projectId}/swapRequests`,requestId);await deleteDoc(requestRef);await loadPendingSwaps()}catch(error){console.error("Error deleting swap request:",error)}}
+        
+        async function loadPendingUsers() {
+            if (!isUserAdmin) return;
+            try {
+                const usersCol = collection(db, `artifacts/${projectId}/users`);
+                const userSnapshot = await getDocs(usersCol);
+                const pendingUsers = userSnapshot.docs.map(doc => doc.data()).filter(user => user.status === 'pending');
+                
+                pendingUsersList.innerHTML = '';
+                if (pendingUsers.length === 0) {
+                    pendingUsersList.innerHTML = '<p class="text-gray-500">Nenhum usuário pendente.</p>';
+                } else {
+                    pendingUsers.forEach(user => {
+                        const userDiv = document.createElement('div');
+                        userDiv.className = 'flex justify-between items-center bg-white p-2 rounded-md';
+                        userDiv.innerHTML = `<div><p class="font-semibold">${user.displayName}</p><p class="text-sm text-gray-500">${user.email}</p></div><button class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded" onclick="window.handleApproveUser('${user.uid}')">Aprovar</button>`;
+                        pendingUsersList.appendChild(userDiv);
+                    });
+                }
+            } catch (error) {
+                console.error("Error loading pending users:", error);
+            }
+        }
+        
+        window.handleApproveUser = async function(uidToApprove) {
+            try {
+                const userRef = doc(db, `artifacts/${projectId}/users`, uidToApprove);
+                await updateDoc(userRef, { status: 'approved' });
+                showToast("Usuário aprovado com sucesso!");
+                await loadPendingUsers();
+            } catch (error) {
+                console.error("Error approving user:", error);
+                showToast("Erro ao aprovar usuário.", true);
+            }
+        }
 
         loginBtn.addEventListener('click',handleLogin);logoutBtn.addEventListener('click',handleLogout);fileInput.addEventListener('change',handleFileUpload);exportButton.addEventListener('click',exportToCSV);swapShiftsBtn.addEventListener('click',toggleSwapMode);modalCancel.addEventListener('click',()=>editModal.classList.add('hidden'));modalSave.addEventListener('click',saveShiftChange);deleteScheduleBtn.addEventListener('click',showDeleteConfirmModal);deleteCancelBtn.addEventListener('click',()=>deleteConfirmModal.classList.add('hidden'));deleteConfirmBtn.addEventListener('click',handleDeleteSchedule);
 
