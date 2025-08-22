@@ -47,7 +47,7 @@
         <header class="flex flex-col md:flex-row justify-between items-center mb-6">
             <div class="text-center md:text-left">
                 <img src="dniz.png" alt="Logo DNIZ" class="h-16 mx-auto md:mx-0" onerror="this.onerror=null;this.src='https://placehold.co/150x64/ffffff/000000?text=DNIZ';">
-                <h1 class="text-2xl font-bold text-gray-800 mt-1">ESCALAS-DNIZ</h1>
+                <h1 class="text-2xl font-bold text-gray-800 mt-1">ESCALAS DNIZ</h1>
             </div>
             <div id="auth-container" class="mt-4 md:mt-0 flex items-center gap-4">
                 <p id="user-info" class="text-sm font-medium text-gray-600 hidden"></p>
@@ -65,7 +65,7 @@
              <!-- Notifications Section -->
             <section id="notifications-section" class="mb-6"></section>
 
-            <div class="flex justify-end mb-4">
+            <div id="admin-controls" class="flex justify-end mb-4">
                  <label for="csv-upload" class="cursor-pointer bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center gap-2">
                     <i class="fas fa-upload"></i>
                     Carregar Nova Escala (CSV)
@@ -116,7 +116,7 @@
             <main id="main-content" class="bg-white p-6 rounded-xl shadow-lg hidden">
                 <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <h2 id="table-title" class="text-xl font-semibold text-gray-700">Escala Mensal</h2>
-                    <div class="flex gap-2 flex-wrap">
+                    <div id="action-buttons" class="flex gap-2 flex-wrap">
                         <button id="swap-shifts-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i class="fas fa-exchange-alt mr-2"></i><span id="swap-btn-text">Trocar Turnos</span></button>
                         <button id="export-csv" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700"><i class="fas fa-file-download mr-2"></i>Exportar CSV</button>
                         <button id="delete-schedule-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700"><i class="fas fa-trash-alt mr-2"></i>Deletar Escala</button>
@@ -175,21 +175,34 @@
         import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const SHIFT_CONFIG = { 'A':{hours:8,color:'bg-yellow-200',text:'text-yellow-800',name:'Manhã'},'B':{hours:8,color:'bg-sky-200',text:'text-sky-800',name:'Tarde'},'C':{hours:8,color:'bg-blue-200',text:'text-blue-800',name:'Noite'},'HA':{hours:8,color:'bg-green-200',text:'text-green-800',name:'Hor. Adm.'},'X':{hours:0,color:'bg-gray-200',text:'text-gray-800',name:'Folga'},'FE':{hours:0,color:'bg-pink-200',text:'text-pink-800',name:'Férias'},'FC':{hours:0,color:'bg-purple-200',text:'text-purple-800',name:'Folga Comp.'},'FF':{hours:0,color:'bg-orange-200',text:'text-orange-800',name:'Folga Feriado'},'---':{hours:0,color:'bg-gray-100',text:'text-gray-500',name:'Vazio'}};
+        const ADMIN_NAMES = ["Wilkson", "Adriano"];
 
         let scheduleData=[],dateHeaders=[],monthName='',year='',originalCsvLines=[],isSwapMode=false,firstSelection=null,currentEditCell=null,currentScheduleId=null,pendingSwaps=[];
         
-        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section');
+        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons');
 
-        let auth,db,userId,projectId,currentUserDisplayName;
+        let auth,db,userId,projectId,currentUserDisplayName, isUserAdmin = false;
 
         async function initializeFirebase(){try{const firebaseConfig={apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};projectId=firebaseConfig.projectId;const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);handleAuthState()}catch(error){console.error("Firebase initialization failed:",error);initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase.</p>`}}
-        function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');appContent.classList.remove('hidden');initialMessage.classList.add('hidden');await loadSavedSchedules();if(currentScheduleId)await loadPendingSwaps()}else{userId=null;currentUserDisplayName=null;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
+        
+        function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;isUserAdmin = currentUserDisplayName && ADMIN_NAMES.some(admin => currentUserDisplayName.toLowerCase().includes(admin.toLowerCase()));userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');appContent.classList.remove('hidden');initialMessage.classList.add('hidden');updateUIVisibility();await loadSavedSchedules();if(currentScheduleId)await loadPendingSwaps()}else{userId=null;currentUserDisplayName=null;isUserAdmin=false;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
+        
+        function updateUIVisibility() {
+            if (isUserAdmin) {
+                adminControls.classList.remove('hidden');
+                deleteScheduleBtn.classList.remove('hidden');
+            } else {
+                adminControls.classList.add('hidden');
+                deleteScheduleBtn.classList.add('hidden');
+            }
+        }
+
         async function handleLogin(){const provider=new GoogleAuthProvider();try{await signInWithPopup(auth,provider)}catch(error){console.error("Google sign-in failed:",error)}}
         async function handleLogout(){try{await signOut(auth)}catch(error){console.error("Sign out failed:",error)}}
         async function saveScheduleToFirestore(){if(!userId||!currentScheduleId)return;const schedulePayload={scheduleData,dateHeaders,monthName,year,originalCsvLines,lastUpdated:(new Date).toISOString()};try{const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,currentScheduleId);await setDoc(scheduleRef,schedulePayload);showToast("Escala salva com sucesso!");await loadSavedSchedules()}catch(error){console.error("Error saving schedule to Firestore:",error);showToast("Erro ao salvar a escala.",true)}}
         async function loadSavedSchedules(){if(!userId)return;try{const schedulesCol=collection(db,`artifacts/${projectId}/schedules`);const scheduleSnapshot=await getDocs(schedulesCol);savedSchedulesList.innerHTML='';if(scheduleSnapshot.empty){savedSchedulesList.innerHTML='<p class="text-gray-500">Nenhuma escala salva encontrada.</p>'}else{const schedules=scheduleSnapshot.docs.map(doc=>({id:doc.id,...doc.data()}));schedules.forEach(schedule=>{const button=document.createElement('button');button.className="bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-100";button.textContent=schedule.id;button.onclick=()=>loadScheduleFromFirestore(schedule.id);savedSchedulesList.appendChild(button)})}}catch(error){console.error("Error loading saved schedules:",error);savedSchedulesList.innerHTML='<p class="text-red-500">Erro ao carregar escalas.</p>'}}
         async function loadScheduleFromFirestore(scheduleId){try{const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,scheduleId);const docSnap=await getDoc(scheduleRef);if(docSnap.exists()){const data=docSnap.data();({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);currentScheduleId=scheduleId;displayData();await loadPendingSwaps()}}catch(error){console.error("Error loading schedule from Firestore:",error)}}
-        async function handleFileUpload(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader;reader.onload=async e=>{originalCsvLines=e.target.result.split(/\r\n?|\n/);parseCSV(originalCsvLines);if(scheduleData.length>0){currentScheduleId=`${year}-${monthName.toUpperCase()}`;displayData();await saveScheduleToFirestore()}};reader.readAsText(file,'ISO-8859-1')}
+        async function handleFileUpload(event){const file=event.target.files[0];if(!file)return;const reader=new FileReader;reader.onload=async e=>{originalCsvLines=e.target.result.split(/\r\n?|\n/);parseCSV(originalCsvLines);if(scheduleData.length>0){currentScheduleId=`${year}-${monthName.toUpperCase()}`;displayData();await saveScheduleToFirestore()}};reader.readAsText(file,'ISO-8B859-1')}
         function parseCSV(lines){scheduleData=[];dateHeaders=[];year='';monthName='';let DATE_ROW=-1,OPERATOR_DATA_START_ROW=-1;for(let i=10;i<lines.length;i++){const parts=lines[i].split(';');if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){DATE_ROW=i;OPERATOR_DATA_START_ROW=i+1;break}}if(DATE_ROW===-1){console.error("Cabeçalho de data não localizado.");return}try{const monthLine=lines[0].split(';')[0].trim();if(monthLine)monthName=monthLine.charAt(0).toUpperCase()+monthLine.slice(1).toLowerCase();const yearLine=lines[3].split(';')[0].trim();if(/^20\d{2}$/.test(yearLine))year=yearLine}catch(e){console.error("Erro ao ler metadados.")}dateHeaders=lines[DATE_ROW].split(';').slice(1).map(d=>d.trim().replace(/"/g,'')).filter(d=>d&&!isNaN(d));if(dateHeaders.length===0){console.error("Datas válidas não encontradas.");return}for(let i=OPERATOR_DATA_START_ROW;i<lines.length;i++){const line=lines[i].trim();if(!line)continue;const parts=line.split(';');const operatorName=parts[0].trim().replace(/"/g,'');if(operatorName&&operatorName.length>2&&isNaN(operatorName)){const shifts=parts.slice(1,dateHeaders.length+1).map(s=>{const cleanedShift=s.trim().replace(/"/g,'');return SHIFT_CONFIG.hasOwnProperty(cleanedShift)?cleanedShift:'---'});if(shifts.length===dateHeaders.length)scheduleData.push({name:operatorName,shifts})}}}
         function displayData(){summarySection.classList.remove('hidden');mainContent.classList.remove('hidden');statsSection.classList.remove('hidden');document.getElementById('table-title').textContent=`Escala Mensal - ${monthName} ${year}`;renderTable();updateAllStats();populateModalSelect()}
         function getDayStatusArray(){const dayStatus=[];let currentStatus='previous';for(let i=0;i<dateHeaders.length;i++){if(i>0&&parseInt(dateHeaders[i])<parseInt(dateHeaders[i-1])){currentStatus=currentStatus==='previous'?'current':'next'}if(dateHeaders[i]==='1'&&currentStatus==='previous'){currentStatus='current'}dayStatus.push(currentStatus)}return dayStatus}
@@ -205,7 +218,7 @@
             const operator = scheduleData[opIndex];
             const operatorName = operator.name;
             
-            if (currentUserDisplayName && currentUserDisplayName.toLowerCase().includes(operatorName.toLowerCase())) {
+            if (isUserAdmin || (currentUserDisplayName && currentUserDisplayName.toLowerCase().includes(operatorName.toLowerCase()))) {
                 currentEditCell = cell;
                 modalOperator.textContent = operator.name;
                 modalDate.textContent = `${dateHeaders[dayIndex]} de ${monthName}`;
@@ -237,4 +250,3 @@
     </script>
 </body>
 </html>
-
