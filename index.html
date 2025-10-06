@@ -141,61 +141,34 @@
         import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const SHIFT_CONFIG = {
-            // Turnos de trabalho originais
+            // Turnos de Trabalho Padrão (Mantidos como base)
             'A': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Manhã' },
             'B': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Tarde' },
             'C': { hours: 8, color: 'bg-blue-200', text: 'text-blue-800', name: 'Noite' },
-            'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Hor. Adm.' },
-
-            // Novos turnos numerados
-            'A1': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 1 (00-08)' },
-            'B1': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 2 (08-16)' },
-            'C1': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 3 (16-00)' },
-            'A2': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 4 (01-09)' },
-            'B2': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 5 (09-17)' },
-            'C2': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 6 (17-01)' },
-            'A3': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 7 (02-10)' },
-            'B3': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 8 (10-18)' },
-            'C3': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 9 (18-02)' },
-            'A4': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 10 (03-11)' },
-            'B4': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 11 (11-19)' },
-            'C4': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 12 (19-03)' },
-            'A5': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 13 (04-12)' },
-            'B5': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 14 (12-20)' },
-            'C5': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 15 (20-04)' },
-            'A6': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 16 (05-13)' },
-            'B6': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 17 (13-21)' },
-            'C6': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 18 (21-05)' },
-            'A7': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 19 (06-14)' },
-            'B7': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 20 (14-22)' },
-            'C7': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 21 (22-06)' },
-            'A8': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Turno 22 (07-15)' },
-            'B8': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Turno 23 (15-23)' },
-            'C8': { hours: 8, color: 'bg-indigo-200', text: 'text-indigo-800', name: 'Turno 24 (23-07)' },
-
-            // Folgas e dispensas originais
-            'X': { hours: 0, color: 'bg-gray-200', text: 'text-gray-800', name: 'Folga' },
-            'FE': { hours: 0, color: 'bg-pink-200', text: 'text-pink-800', name: 'Férias' },
-            'FC': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Folga Comp.' },
-            'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Folga Feriado' },
-
-            // Novas folgas, licenças e dispensas
-            'AP': { hours: 0, color: 'bg-teal-200', text: 'text-teal-800', name: 'Abono de Ponto' },
-            'AM': { hours: 0, color: 'bg-red-200', text: 'text-red-800', name: 'Atestado Médico' },
-            'LP': { hours: 0, color: 'bg-fuchsia-200', text: 'text-fuchsia-800', name: 'Licença Paternidade' },
-            'LM': { hours: 0, color: 'bg-rose-200', text: 'text-rose-800', name: 'Licença Médica' },
-            'LG': { hours: 0, color: 'bg-violet-200', text: 'text-violet-800', name: 'Licença Gala' },
-            'LJ': { hours: 0, color: 'bg-stone-300', text: 'text-stone-800', name: 'Licença Luto' },
-            'SB': { hours: 0, color: 'bg-slate-300', text: 'text-slate-800', name: 'Sobreaviso' },
-
-            // Novos turnos de trabalho especiais
-            'CS': { hours: 8, color: 'bg-lime-200', text: 'text-lime-800', name: 'Convocação Superior' },
-            'CT': { hours: 8, color: 'bg-emerald-200', text: 'text-emerald-800', name: 'Curso Teórico' },
-            'CP': { hours: 8, color: 'bg-emerald-300', text: 'text-emerald-900', name: 'Curso Prático' },
-            'TR': { hours: 8, color: 'bg-cyan-200', text: 'text-cyan-800', name: 'Treinamento' },
-            'SR': { hours: 8, color: 'bg-cyan-300', text: 'text-cyan-900', name: 'Serviço Remoto' },
             
-            // Turno vazio padrão
+            // Turnos da Nova Lista
+            'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Horário Administrativo' },
+            'VS': { hours: 8, color: 'bg-cyan-200', text: 'text-cyan-800', name: 'Viagem a Serviço' },
+            'IS': { hours: 8, color: 'bg-teal-200', text: 'text-teal-800', name: 'Inspeção Saúde' },
+
+            // Folgas e Compensações
+            'X': { hours: 0, color: 'bg-gray-200', text: 'text-gray-800', name: 'Folga/Repouso' },
+            'CHE': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Compensação Hora Extra' },
+            'FC': { hours: 0, color: 'bg-purple-300', text: 'text-purple-900', name: 'Folga Compensatória' },
+            'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Folga Feriado' },
+            'FA': { hours: 0, color: 'bg-gray-300', text: 'text-gray-900', name: 'Folga de Ajuste de Escala' },
+
+            // Férias, Licenças e Dispensas
+            'FE': { hours: 0, color: 'bg-pink-200', text: 'text-pink-800', name: 'Férias' },
+            'R': { hours: 0, color: 'bg-pink-300', text: 'text-pink-900', name: 'Recesso' },
+            'AM': { hours: 0, color: 'bg-red-200', text: 'text-red-800', name: 'Atestado Médico' },
+            'LM': { hours: 0, color: 'bg-rose-200', text: 'text-rose-800', name: 'Licença Maternidade' },
+            'LP': { hours: 0, color: 'bg-fuchsia-200', text: 'text-fuchsia-800', name: 'Licença Paternidade' },
+            
+            // Outros
+            'SE': { hours: 0, color: 'bg-slate-300', text: 'text-slate-800', name: 'Sobreaviso' },
+
+            // Vazio
             '---': { hours: 0, color: 'bg-gray-100', text: 'text-gray-500', name: 'Vazio' }
         };
 
