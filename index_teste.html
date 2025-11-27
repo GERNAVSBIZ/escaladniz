@@ -262,10 +262,12 @@
                 adminControls.classList.remove('hidden');
                 deleteScheduleBtn.classList.remove('hidden');
                 exportButton.classList.remove('hidden');
+                adminPanel.classList.remove('hidden'); // Ensure admin panel is shown for admins
             } else {
                 adminControls.classList.add('hidden');
                 deleteScheduleBtn.classList.add('hidden');
                 exportButton.classList.add('hidden');
+                adminPanel.classList.add('hidden'); // Ensure admin panel is hidden for non-admins
             }
         }
 
