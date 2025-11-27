@@ -202,14 +202,18 @@
         
         const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons'), adminPanel = document.getElementById('admin-panel'), pendingUsersList = document.getElementById('pending-users-list'), pendingApprovalMessage = document.getElementById('pending-approval-message'), auditLogList = document.getElementById('audit-log-list');
 
-        let auth,db,userId,projectId,currentUserDisplayName, isUserAdmin = false;
+        let auth,db,userId,currentUserDisplayName, isUserAdmin = false;
+        
+        // Define appId from global or default
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'dashboard-escala';
 
-        async function initializeFirebase(){try{const firebaseConfig={apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};projectId=firebaseConfig.projectId;const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);handleAuthState()}catch(error){console.error("Firebase initialization failed:",error);initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase.</p>`}}
+        async function initializeFirebase(){try{const firebaseConfig={apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);handleAuthState()}catch(error){console.error("Firebase initialization failed:",error);initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase.</p>`}}
         
         function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');await checkUserStatus(user)}else{userId=null;currentUserDisplayName=null;isUserAdmin=false;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');adminPanel.classList.add('hidden');pendingApprovalMessage.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
         
         async function checkUserStatus(user) {
-            const userRef = doc(db, `artifacts/${projectId}/users`, user.uid);
+            // FIXED PATH: Use appId and public/data for users list (as it acts as a shared directory for admin approval)
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, user.uid);
             const userDoc = await getDoc(userRef);
 
             if (!userDoc.exists()) {
@@ -262,23 +266,27 @@
                 adminControls.classList.remove('hidden');
                 deleteScheduleBtn.classList.remove('hidden');
                 exportButton.classList.remove('hidden');
-                adminPanel.classList.remove('hidden'); // Ensure admin panel is shown for admins
+                adminPanel.classList.remove('hidden');
             } else {
                 adminControls.classList.add('hidden');
                 deleteScheduleBtn.classList.add('hidden');
                 exportButton.classList.add('hidden');
-                adminPanel.classList.add('hidden'); // Ensure admin panel is hidden for non-admins
+                adminPanel.classList.add('hidden');
             }
         }
 
         async function handleLogin(){const provider=new GoogleAuthProvider();try{await signInWithPopup(auth,provider)}catch(error){console.error("Google sign-in failed:",error)}}
         async function handleLogout(){try{await signOut(auth)}catch(error){console.error("Sign out failed:",error)}}
-        async function saveScheduleToFirestore(){if(!userId||!currentScheduleId)return;const schedulePayload={scheduleData,dateHeaders,monthName,year,originalCsvLines,lastUpdated:(new Date).toISOString()};try{const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,currentScheduleId);await setDoc(scheduleRef,schedulePayload);showToast("Escala salva com sucesso!");await loadSavedSchedules()}catch(error){console.error("Error saving schedule to Firestore:",error);showToast("Erro ao salvar a escala.",true)}}
+        async function saveScheduleToFirestore(){if(!userId||!currentScheduleId)return;const schedulePayload={scheduleData,dateHeaders,monthName,year,originalCsvLines,lastUpdated:(new Date).toISOString()};try{
+            // FIXED PATH: Use appId and public/data/schedules
+            const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,currentScheduleId);
+            await setDoc(scheduleRef,schedulePayload);showToast("Escala salva com sucesso!");await loadSavedSchedules()}catch(error){console.error("Error saving schedule to Firestore:",error);showToast("Erro ao salvar a escala.",true)}}
         
         async function loadSavedSchedules(){
             if(!userId)return;
             try {
-                const schedulesCol=collection(db,`artifacts/${projectId}/schedules`);
+                // FIXED PATH: Use appId and public/data/schedules
+                const schedulesCol=collection(db,`artifacts/${appId}/public/data/schedules`);
                 const scheduleSnapshot=await getDocs(schedulesCol);
                 savedSchedulesList.innerHTML='';
                 if(scheduleSnapshot.empty){
@@ -300,7 +308,10 @@
             }
         }
 
-        async function loadScheduleFromFirestore(scheduleId){try{const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,scheduleId);const docSnap=await getDoc(scheduleRef);if(docSnap.exists()){const data=docSnap.data();({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);currentScheduleId=scheduleId;displayData();await loadPendingSwaps(); if(isUserAdmin) await loadLogs();}}catch(error){console.error("Error loading schedule from Firestore:",error)}}
+        async function loadScheduleFromFirestore(scheduleId){try{
+            // FIXED PATH: Use appId and public/data/schedules
+            const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,scheduleId);
+            const docSnap=await getDoc(scheduleRef);if(docSnap.exists()){const data=docSnap.data();({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);currentScheduleId=scheduleId;displayData();await loadPendingSwaps(); if(isUserAdmin) await loadLogs();}}catch(error){console.error("Error loading schedule from Firestore:",error)}}
         
         async function handleFileUpload(event){
             const file=event.target.files[0];
@@ -397,16 +408,23 @@
         }
 
         function showDeleteConfirmModal(){if(!currentScheduleId)return;deleteScheduleName.textContent=currentScheduleId;deleteConfirmModal.classList.remove('hidden')}
-        async function handleDeleteSchedule(){if(!userId||!currentScheduleId)return;try{const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,currentScheduleId);await deleteDoc(scheduleRef);showToast("Escala deletada com sucesso!");deleteConfirmModal.classList.add('hidden');resetUI();await loadSavedSchedules()}catch(error){console.error("Error deleting schedule:",error);showToast("Erro ao deletar a escala.",true)}}
+        async function handleDeleteSchedule(){if(!userId||!currentScheduleId)return;try{
+            // FIXED PATH: Use appId and public/data/schedules
+            const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,currentScheduleId);
+            await deleteDoc(scheduleRef);showToast("Escala deletada com sucesso!");deleteConfirmModal.classList.add('hidden');resetUI();await loadSavedSchedules()}catch(error){console.error("Error deleting schedule:",error);showToast("Erro ao deletar a escala.",true)}}
         function resetUI(){summarySection.classList.add('hidden');mainContent.classList.add('hidden');statsSection.classList.add('hidden');scheduleData=[];dateHeaders=[];monthName='';year='';originalCsvLines=[];currentScheduleId=null}
         function showToast(message,isError=false){const toast=document.getElementById('toast-notification'),toastMessage=document.getElementById('toast-message');toast.classList.toggle('bg-red-500',isError);toast.classList.toggle('bg-green-500',!isError);toastMessage.textContent=message;toast.classList.remove('opacity-0','translate-y-10');setTimeout(()=>{toast.classList.add('opacity-0','translate-y-10')},3000)}
         function exportToCSV(){if(!originalCsvLines||originalCsvLines.length===0){alert("Não há dados para exportar.");return}let updatedCsvLines=[...originalCsvLines];let DATE_ROW=-1,OPERATOR_DATA_START_ROW=-1;for(let i=10;i<updatedCsvLines.length;i++){const parts=updatedCsvLines[i].split(';');if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){DATE_ROW=i;OPERATOR_DATA_START_ROW=i+1;break}}if(OPERATOR_DATA_START_ROW===-1){alert("Não foi possível encontrar a linha inicial dos operadores.");return}scheduleData.forEach((operator,opIndex)=>{const rowIndex=OPERATOR_DATA_START_ROW+opIndex;if(updatedCsvLines[rowIndex]){let parts=updatedCsvLines[rowIndex].split(';');parts[0]=operator.name;operator.shifts.forEach((shift,dayIndex)=>{parts[dayIndex+1]=shift});updatedCsvLines[rowIndex]=parts.join(';')}});const csvContent=updatedCsvLines.join('\n');const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});const link=document.createElement("a");const url=URL.createObjectURL(blob);link.setAttribute("href",url);link.setAttribute("download",`escala_atualizada_${monthName.toLowerCase()}_${year}.csv`);document.body.appendChild(link);link.click();document.body.removeChild(link)}
-        async function saveSwapRequest(requestData){try{const requestRef=doc(db,`artifacts/${projectId}/swapRequests`,requestData.id);await setDoc(requestRef,requestData);await loadPendingSwaps()}catch(error){console.error("Error saving swap request:",error)}}
+        async function saveSwapRequest(requestData){try{
+            // FIXED PATH: Use appId and public/data/swapRequests
+            const requestRef=doc(db,`artifacts/${appId}/public/data/swapRequests`,requestData.id);
+            await setDoc(requestRef,requestData);await loadPendingSwaps()}catch(error){console.error("Error saving swap request:",error)}}
         
         async function loadPendingSwaps(){
             if(!userId||!currentScheduleId)return;
             try {
-                const requestsCol=collection(db,`artifacts/${projectId}/swapRequests`);
+                // FIXED PATH: Use appId and public/data/swapRequests
+                const requestsCol=collection(db,`artifacts/${appId}/public/data/swapRequests`);
                 const requestSnapshot=await getDocs(requestsCol);
                 const allSwaps = requestSnapshot.docs.map(doc=>doc.data()).filter(req=>req.scheduleId===currentScheduleId);
 
@@ -448,12 +466,16 @@
         }
         
         window.handleDeclineSwap=async function(requestId){await deleteSwapRequest(requestId);showToast("Solicitação de troca recusada.")}
-        async function deleteSwapRequest(requestId, reload = true){try{const requestRef=doc(db,`artifacts/${projectId}/swapRequests`,requestId);await deleteDoc(requestRef);if(reload) await loadPendingSwaps()}catch(error){console.error("Error deleting swap request:",error)}}
+        async function deleteSwapRequest(requestId, reload = true){try{
+            // FIXED PATH: Use appId and public/data/swapRequests
+            const requestRef=doc(db,`artifacts/${appId}/public/data/swapRequests`,requestId);
+            await deleteDoc(requestRef);if(reload) await loadPendingSwaps()}catch(error){console.error("Error deleting swap request:",error)}}
         
         async function loadPendingUsers() {
             if (!isUserAdmin) return;
             try {
-                const usersCol = collection(db, `artifacts/${projectId}/users`);
+                // FIXED PATH: Use appId and public/data/users
+                const usersCol = collection(db, `artifacts/${appId}/public/data/users`);
                 const userSnapshot = await getDocs(usersCol);
                 const pendingUsers = userSnapshot.docs.map(doc => doc.data()).filter(user => user.status === 'pending');
                 
@@ -488,8 +510,8 @@
             };
             
             try {
-                // RULE 1: Use specific path for public data
-                const logsCol = collection(db, `artifacts/${projectId}/public/data/audit_logs`);
+                // FIXED PATH: Use appId and public/data/audit_logs
+                const logsCol = collection(db, `artifacts/${appId}/public/data/audit_logs`);
                 await addDoc(logsCol, logEntry);
                 
                 // Refresh if admin is viewing
@@ -507,7 +529,8 @@
             try {
                 auditLogList.innerHTML = '<li class="p-4 text-center text-gray-500 text-sm italic">Carregando logs...</li>';
                 
-                const logsCol = collection(db, `artifacts/${projectId}/public/data/audit_logs`);
+                // FIXED PATH: Use appId and public/data/audit_logs
+                const logsCol = collection(db, `artifacts/${appId}/public/data/audit_logs`);
                 const snapshot = await getDocs(logsCol);
                 
                 const logs = snapshot.docs
@@ -549,7 +572,8 @@
 
         window.handleApproveUser = async function(uidToApprove) {
             try {
-                const userRef = doc(db, `artifacts/${projectId}/users`, uidToApprove);
+                // FIXED PATH: Use appId and public/data/users
+                const userRef = doc(db, `artifacts/${appId}/public/data/users`, uidToApprove);
                 await updateDoc(userRef, { status: 'approved' });
                 showToast("Usuário aprovado com sucesso!");
                 await loadPendingUsers();
@@ -561,7 +585,8 @@
 
         window.handleDenyUser = async function(uidToDeny) {
             try {
-                const userRef = doc(db, `artifacts/${projectId}/users`, uidToDeny);
+                // FIXED PATH: Use appId and public/data/users
+                const userRef = doc(db, `artifacts/${appId}/public/data/users`, uidToDeny);
                 await deleteDoc(userRef);
                 showToast("Usuário negado e removido.");
                 await loadPendingUsers();
