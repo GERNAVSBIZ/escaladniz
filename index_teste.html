@@ -30,7 +30,7 @@
             <div id="auth-container" class="mt-4 md:mt-0 flex items-center gap-4">
                 <p id="user-info" class="text-sm font-medium text-gray-600 hidden"></p>
                 <button id="login-btn" class="bg-white text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors shadow-sm flex items-center gap-2">
-                    <i class="fab fa-google"></i> Login com Google
+                    <i class="fas fa-user-circle"></i> Identificar-se
                 </button>
                 <button id="logout-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors shadow-sm hidden">
                     Sair
@@ -117,81 +117,90 @@
         </div>
 
         <div id="initial-message" class="text-center py-20">
-            <i class="fas fa-sign-in-alt fa-4x text-gray-400 mb-4"></i>
+            <i class="fas fa-users-cog fa-4x text-gray-400 mb-4"></i>
             <h2 class="text-2xl font-semibold text-gray-600">Bem-vindo!</h2>
-            <p class="text-gray-500 mt-2">Faça login com sua conta Google para gerenciar as escalas.</p>
+            <p class="text-gray-500 mt-2">Identifique-se para acessar o sistema.</p>
         </div>
         
-        <div id="pending-approval-message" class="text-center py-20 hidden">
-            <i class="fas fa-clock fa-4x text-yellow-500 mb-4"></i>
-            <h2 class="text-2xl font-semibold text-gray-600">Aguardando Aprovação</h2>
-            <p class="text-gray-500 mt-2">Sua conta foi registrada e está aguardando a aprovação de um administrador.</p>
-        </div>
-    </div>
-
-    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
-            <h3 class="text-lg font-bold mb-4">Alterar Turno</h3>
-            <p class="mb-2"><strong>Operador:</strong> <span id="modal-operator"></span></p>
-            <p class="mb-4"><strong>Data:</strong> <span id="modal-date"></span></p>
-            <select id="modal-shift-select" class="w-full p-2 border rounded-md"></select>
-            <div class="mt-6 flex justify-end gap-4">
-                <button id="modal-cancel" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
-                <button id="modal-save" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Salvar</button>
+        <!-- Login Modal -->
+        <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
+                <h3 class="text-lg font-bold mb-4">Identificação</h3>
+                <p class="mb-4 text-sm text-gray-600">Selecione seu usuário para acessar o painel.</p>
+                
+                <div class="space-y-3">
+                    <button class="w-full bg-orange-100 hover:bg-orange-200 text-orange-800 font-semibold py-2 px-4 rounded border border-orange-300" onclick="window.performSimulatedLogin('Wilkson')">
+                        Wilkson (Admin)
+                    </button>
+                    <button class="w-full bg-orange-100 hover:bg-orange-200 text-orange-800 font-semibold py-2 px-4 rounded border border-orange-300" onclick="window.performSimulatedLogin('Adriano')">
+                        Adriano (Admin)
+                    </button>
+                    <div class="border-t border-gray-200 my-2"></div>
+                    <button class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded border border-gray-300" onclick="window.performSimulatedLogin('Operador')">
+                        Operador Padrão
+                    </button>
+                </div>
+                
+                <div class="mt-4 text-right">
+                    <button onclick="document.getElementById('login-modal').classList.add('hidden')" class="text-gray-500 text-sm hover:underline">Cancelar</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
-            <h3 class="text-lg font-bold mb-2 text-gray-800">Confirmar Exclusão</h3>
-            <p class="mb-6 text-gray-600">Tem certeza que deseja deletar a escala <strong id="delete-schedule-name" class="text-red-600"></strong>? Esta ação não pode ser desfeita.</p>
-            <div class="mt-6 flex justify-end gap-4">
-                <button id="delete-cancel-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
-                <button id="delete-confirm-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Deletar</button>
+        <!-- Edit Modal -->
+        <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
+                <h3 class="text-lg font-bold mb-4">Alterar Turno</h3>
+                <p class="mb-2"><strong>Operador:</strong> <span id="modal-operator"></span></p>
+                <p class="mb-4"><strong>Data:</strong> <span id="modal-date"></span></p>
+                <select id="modal-shift-select" class="w-full p-2 border rounded-md"></select>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button id="modal-cancel" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
+                    <button id="modal-save" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Salvar</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div id="toast-notification" class="fixed bottom-5 right-5 bg-green-500 text-white py-3 px-6 rounded-lg shadow-lg opacity-0 transform translate-y-10">
-        <i class="fas fa-check-circle mr-2"></i>
-        <span id="toast-message"></span>
+        <div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+                <h3 class="text-lg font-bold mb-2 text-gray-800">Confirmar Exclusão</h3>
+                <p class="mb-6 text-gray-600">Tem certeza que deseja deletar a escala <strong id="delete-schedule-name" class="text-red-600"></strong>? Esta ação não pode ser desfeita.</p>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button id="delete-cancel-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
+                    <button id="delete-confirm-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Deletar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast-notification" class="fixed bottom-5 right-5 bg-green-500 text-white py-3 px-6 rounded-lg shadow-lg opacity-0 transform translate-y-10">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span id="toast-message"></span>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const SHIFT_CONFIG = {
-            // Turnos de Trabalho Padrão (Mantidos como base)
             'A': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Manhã' },
             'B': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Tarde' },
             'C': { hours: 8, color: 'bg-blue-200', text: 'text-blue-800', name: 'Noite' },
-            
-            // Turnos da Nova Lista
             'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Horário Administrativo' },
             'VS': { hours: 8, color: 'bg-cyan-200', text: 'text-cyan-800', name: 'Viagem a Serviço' },
             'IS': { hours: 8, color: 'bg-teal-200', text: 'text-teal-800', name: 'Inspeção Saúde' },
-
-            // Folgas e Compensações
             'X': { hours: 0, color: 'bg-gray-200', text: 'text-gray-800', name: 'Folga/Repouso' },
             'CHE': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Compensação Hora Extra' },
             'FC': { hours: 0, color: 'bg-purple-300', text: 'text-purple-900', name: 'Folga Compensatória' },
             'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Folga Feriado' },
             'FA': { hours: 0, color: 'bg-gray-300', text: 'text-gray-900', name: 'Folga de Ajuste de Escala' },
-
-            // Férias, Licenças e Dispensas
             'FE': { hours: 0, color: 'bg-pink-200', text: 'text-pink-800', name: 'Férias' },
             'R': { hours: 0, color: 'bg-pink-300', text: 'text-pink-900', name: 'Recesso' },
             'AM': { hours: 0, color: 'bg-red-200', text: 'text-red-800', name: 'Atestado Médico' },
             'LM': { hours: 0, color: 'bg-rose-200', text: 'text-rose-800', name: 'Licença Maternidade' },
             'LP': { hours: 0, color: 'bg-fuchsia-200', text: 'text-fuchsia-800', name: 'Licença Paternidade' },
-            
-            // Outros
             'SE': { hours: 0, color: 'bg-slate-300', text: 'text-slate-800', name: 'Sobreaviso' },
-
-            // Vazio
             '---': { hours: 0, color: 'bg-gray-100', text: 'text-gray-500', name: 'Vazio' }
         };
 
@@ -200,65 +209,77 @@
 
         let scheduleData=[],dateHeaders=[],monthName='',year='',originalCsvLines=[],isSwapMode=false,firstSelection=null,currentEditCell=null,currentScheduleId=null,pendingSwaps=[];
         
-        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons'), adminPanel = document.getElementById('admin-panel'), pendingUsersList = document.getElementById('pending-users-list'), pendingApprovalMessage = document.getElementById('pending-approval-message'), auditLogList = document.getElementById('audit-log-list');
+        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons'), adminPanel = document.getElementById('admin-panel'), pendingUsersList = document.getElementById('pending-users-list'), auditLogList = document.getElementById('audit-log-list'), loginModal = document.getElementById('login-modal');
 
-        let auth,db,userId,currentUserDisplayName, isUserAdmin = false;
+        let auth,db,userId,currentUserDisplayName = null, isUserAdmin = false;
         
-        // Define appId from global or default
+        // Environment variables handling
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'dashboard-escala';
 
-        async function initializeFirebase(){try{const firebaseConfig={apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);handleAuthState()}catch(error){console.error("Firebase initialization failed:",error);initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase.</p>`}}
-        
-        function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');await checkUserStatus(user)}else{userId=null;currentUserDisplayName=null;isUserAdmin=false;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');adminPanel.classList.add('hidden');pendingApprovalMessage.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
-        
-        async function checkUserStatus(user) {
-            // FIXED PATH: Use appId and public/data for users list (as it acts as a shared directory for admin approval)
-            const userRef = doc(db, `artifacts/${appId}/public/data/users`, user.uid);
-            const userDoc = await getDoc(userRef);
+        async function initializeFirebase(){
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                
+                // AUTHENTICATION STRATEGY: 
+                // We use environment auth for DB permission, but "Simulated Login" for user identity.
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                
+                userId = auth.currentUser?.uid;
+                
+                // Check if user was previously "logged in" via local storage simulation
+                const storedUser = localStorage.getItem('simulated_user');
+                if (storedUser) {
+                    window.performSimulatedLogin(storedUser);
+                }
 
-            if (!userDoc.exists()) {
-                const isAdmin = ADMIN_NAMES.some(admin => user.displayName.toLowerCase().includes(admin.toLowerCase()));
-                await setDoc(userRef, {
-                    uid: user.uid,
-                    displayName: user.displayName,
-                    email: user.email,
-                    status: isAdmin ? 'approved' : 'pending',
-                    isAdmin: isAdmin
-                });
-                if (isAdmin) {
-                    isUserAdmin = true;
-                    showFullApp();
-                } else {
-                    showPendingApprovalMessage();
-                }
-            } else {
-                const userData = userDoc.data();
-                isUserAdmin = userData.isAdmin || false;
-                if (userData.status === 'approved') {
-                    showFullApp();
-                } else {
-                    showPendingApprovalMessage();
-                }
+            } catch(error) {
+                console.error("Firebase initialization failed:", error);
+                initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Conexão</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao sistema.</p>`
             }
+        }
+        
+        // SIMULATED LOGIN FUNCTION
+        window.performSimulatedLogin = async function(name) {
+            currentUserDisplayName = name;
+            localStorage.setItem('simulated_user', name);
+            
+            userInfo.textContent = `Olá, ${name}`;
+            loginBtn.classList.add('hidden');
+            userInfo.classList.remove('hidden');
+            logoutBtn.classList.remove('hidden');
+            loginModal.classList.add('hidden');
+            
+            // Check Admin Status based on name
+            isUserAdmin = ADMIN_NAMES.some(admin => name.toLowerCase().includes(admin.toLowerCase()));
+            
+            // Show App
+            showFullApp();
         }
 
         async function showFullApp() {
             appContent.classList.remove('hidden');
             initialMessage.classList.add('hidden');
-            pendingApprovalMessage.classList.add('hidden');
+            
             updateUIVisibility();
             await loadSavedSchedules();
-            if (currentScheduleId) await loadPendingSwaps();
+            
+            // Reload context if schedule is loaded
+            if (currentScheduleId) {
+                displayData(); // Re-render table to update edit buttons based on new admin status
+                await loadPendingSwaps();
+            }
+            
             if (isUserAdmin) {
-                await loadPendingUsers();
+                await loadPendingUsers(); // Although we don't have real pending users now, we keep the structure
                 await loadLogs();
             }
-        }
-
-        function showPendingApprovalMessage() {
-            appContent.classList.add('hidden');
-            initialMessage.classList.add('hidden');
-            pendingApprovalMessage.classList.remove('hidden');
         }
 
         function updateUIVisibility() {
@@ -275,17 +296,43 @@
             }
         }
 
-        async function handleLogin(){const provider=new GoogleAuthProvider();try{await signInWithPopup(auth,provider)}catch(error){console.error("Google sign-in failed:",error)}}
-        async function handleLogout(){try{await signOut(auth)}catch(error){console.error("Sign out failed:",error)}}
-        async function saveScheduleToFirestore(){if(!userId||!currentScheduleId)return;const schedulePayload={scheduleData,dateHeaders,monthName,year,originalCsvLines,lastUpdated:(new Date).toISOString()};try{
-            // FIXED PATH: Use appId and public/data/schedules
-            const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,currentScheduleId);
-            await setDoc(scheduleRef,schedulePayload);showToast("Escala salva com sucesso!");await loadSavedSchedules()}catch(error){console.error("Error saving schedule to Firestore:",error);showToast("Erro ao salvar a escala.",true)}}
+        window.handleLogin = function() {
+            loginModal.classList.remove('hidden');
+        }
+
+        window.handleLogout = function() {
+            currentUserDisplayName = null;
+            isUserAdmin = false;
+            localStorage.removeItem('simulated_user');
+            
+            loginBtn.classList.remove('hidden');
+            userInfo.classList.add('hidden');
+            logoutBtn.classList.add('hidden');
+            appContent.classList.add('hidden');
+            adminPanel.classList.add('hidden');
+            initialMessage.classList.remove('hidden');
+            
+            // Note: We do NOT sign out of Firebase Auth to keep DB connection alive for next login
+        }
+
+        async function saveScheduleToFirestore(){
+            if(!userId||!currentScheduleId)return;
+            const schedulePayload={scheduleData,dateHeaders,monthName,year,originalCsvLines,lastUpdated:(new Date).toISOString()};
+            try {
+                // FIXED PATH: Use appId and public/data/schedules
+                const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,currentScheduleId);
+                await setDoc(scheduleRef,schedulePayload);
+                showToast("Escala salva com sucesso!");
+                await loadSavedSchedules();
+            } catch(error) {
+                console.error("Error saving schedule:",error);
+                showToast("Erro ao salvar a escala.",true);
+            }
+        }
         
         async function loadSavedSchedules(){
             if(!userId)return;
             try {
-                // FIXED PATH: Use appId and public/data/schedules
                 const schedulesCol=collection(db,`artifacts/${appId}/public/data/schedules`);
                 const scheduleSnapshot=await getDocs(schedulesCol);
                 savedSchedulesList.innerHTML='';
@@ -293,7 +340,7 @@
                     savedSchedulesList.innerHTML='<p class="text-gray-500">Nenhuma escala salva encontrada.</p>'
                 } else {
                     const schedules=scheduleSnapshot.docs.map(doc=>({id:doc.id,...doc.data()}));
-                    schedules.sort((a, b) => a.id.localeCompare(b.id)); // Sort by new ID
+                    schedules.sort((a, b) => a.id.localeCompare(b.id)); 
                     schedules.forEach(schedule=>{
                         const button=document.createElement('button');
                         button.className="bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-100";
@@ -308,10 +355,22 @@
             }
         }
 
-        async function loadScheduleFromFirestore(scheduleId){try{
-            // FIXED PATH: Use appId and public/data/schedules
-            const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,scheduleId);
-            const docSnap=await getDoc(scheduleRef);if(docSnap.exists()){const data=docSnap.data();({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);currentScheduleId=scheduleId;displayData();await loadPendingSwaps(); if(isUserAdmin) await loadLogs();}}catch(error){console.error("Error loading schedule from Firestore:",error)}}
+        async function loadScheduleFromFirestore(scheduleId){
+            try {
+                const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,scheduleId);
+                const docSnap=await getDoc(scheduleRef);
+                if(docSnap.exists()){
+                    const data=docSnap.data();
+                    ({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);
+                    currentScheduleId=scheduleId;
+                    displayData();
+                    await loadPendingSwaps(); 
+                    if(isUserAdmin) await loadLogs();
+                }
+            } catch(error) {
+                console.error("Error loading schedule:",error);
+            }
+        }
         
         async function handleFileUpload(event){
             const file=event.target.files[0];
@@ -323,8 +382,7 @@
                 if(scheduleData.length>0){
                     const MONTH_MAP_NUM = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
                     const monthNum = MONTH_MAP_NUM[monthName.toUpperCase()];
-                    const oldScheduleId = currentScheduleId;
-                    currentScheduleId=`${monthNum}-${year}-${monthName.toUpperCase()}`; // New format
+                    currentScheduleId=`${monthNum}-${year}-${monthName.toUpperCase()}`; 
                     displayData();
                     await saveScheduleToFirestore();
                     await logAction('Nova Escala', `Upload de escala: ${currentScheduleId}`);
@@ -409,21 +467,18 @@
 
         function showDeleteConfirmModal(){if(!currentScheduleId)return;deleteScheduleName.textContent=currentScheduleId;deleteConfirmModal.classList.remove('hidden')}
         async function handleDeleteSchedule(){if(!userId||!currentScheduleId)return;try{
-            // FIXED PATH: Use appId and public/data/schedules
             const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,currentScheduleId);
             await deleteDoc(scheduleRef);showToast("Escala deletada com sucesso!");deleteConfirmModal.classList.add('hidden');resetUI();await loadSavedSchedules()}catch(error){console.error("Error deleting schedule:",error);showToast("Erro ao deletar a escala.",true)}}
         function resetUI(){summarySection.classList.add('hidden');mainContent.classList.add('hidden');statsSection.classList.add('hidden');scheduleData=[];dateHeaders=[];monthName='';year='';originalCsvLines=[];currentScheduleId=null}
         function showToast(message,isError=false){const toast=document.getElementById('toast-notification'),toastMessage=document.getElementById('toast-message');toast.classList.toggle('bg-red-500',isError);toast.classList.toggle('bg-green-500',!isError);toastMessage.textContent=message;toast.classList.remove('opacity-0','translate-y-10');setTimeout(()=>{toast.classList.add('opacity-0','translate-y-10')},3000)}
         function exportToCSV(){if(!originalCsvLines||originalCsvLines.length===0){alert("Não há dados para exportar.");return}let updatedCsvLines=[...originalCsvLines];let DATE_ROW=-1,OPERATOR_DATA_START_ROW=-1;for(let i=10;i<updatedCsvLines.length;i++){const parts=updatedCsvLines[i].split(';');if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){DATE_ROW=i;OPERATOR_DATA_START_ROW=i+1;break}}if(OPERATOR_DATA_START_ROW===-1){alert("Não foi possível encontrar a linha inicial dos operadores.");return}scheduleData.forEach((operator,opIndex)=>{const rowIndex=OPERATOR_DATA_START_ROW+opIndex;if(updatedCsvLines[rowIndex]){let parts=updatedCsvLines[rowIndex].split(';');parts[0]=operator.name;operator.shifts.forEach((shift,dayIndex)=>{parts[dayIndex+1]=shift});updatedCsvLines[rowIndex]=parts.join(';')}});const csvContent=updatedCsvLines.join('\n');const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});const link=document.createElement("a");const url=URL.createObjectURL(blob);link.setAttribute("href",url);link.setAttribute("download",`escala_atualizada_${monthName.toLowerCase()}_${year}.csv`);document.body.appendChild(link);link.click();document.body.removeChild(link)}
         async function saveSwapRequest(requestData){try{
-            // FIXED PATH: Use appId and public/data/swapRequests
             const requestRef=doc(db,`artifacts/${appId}/public/data/swapRequests`,requestData.id);
             await setDoc(requestRef,requestData);await loadPendingSwaps()}catch(error){console.error("Error saving swap request:",error)}}
         
         async function loadPendingSwaps(){
             if(!userId||!currentScheduleId)return;
             try {
-                // FIXED PATH: Use appId and public/data/swapRequests
                 const requestsCol=collection(db,`artifacts/${appId}/public/data/swapRequests`);
                 const requestSnapshot=await getDocs(requestsCol);
                 const allSwaps = requestSnapshot.docs.map(doc=>doc.data()).filter(req=>req.scheduleId===currentScheduleId);
@@ -435,7 +490,7 @@
                 for (const swap of allSwaps) {
                     const swapDate = getFullDateForCell(swap.initiator.dayIndex);
                     if (swapDate < today) {
-                        await deleteSwapRequest(swap.id, false); // Delete expired without reloading all swaps
+                        await deleteSwapRequest(swap.id, false);
                     } else {
                         validSwaps.push(swap);
                     }
@@ -467,29 +522,16 @@
         
         window.handleDeclineSwap=async function(requestId){await deleteSwapRequest(requestId);showToast("Solicitação de troca recusada.")}
         async function deleteSwapRequest(requestId, reload = true){try{
-            // FIXED PATH: Use appId and public/data/swapRequests
             const requestRef=doc(db,`artifacts/${appId}/public/data/swapRequests`,requestId);
             await deleteDoc(requestRef);if(reload) await loadPendingSwaps()}catch(error){console.error("Error deleting swap request:",error)}}
         
         async function loadPendingUsers() {
             if (!isUserAdmin) return;
             try {
-                // FIXED PATH: Use appId and public/data/users
-                const usersCol = collection(db, `artifacts/${appId}/public/data/users`);
-                const userSnapshot = await getDocs(usersCol);
-                const pendingUsers = userSnapshot.docs.map(doc => doc.data()).filter(user => user.status === 'pending');
-                
-                if (pendingUsers.length === 0) {
-                    pendingUsersList.innerHTML = '<p class="text-gray-500 text-sm italic">Nenhum usuário pendente.</p>';
-                } else {
-                    pendingUsersList.innerHTML = '';
-                    pendingUsers.forEach(user => {
-                        const userDiv = document.createElement('div');
-                        userDiv.className = 'flex justify-between items-center bg-gray-50 p-2 rounded-md border border-gray-200';
-                        userDiv.innerHTML = `<div><p class="font-semibold text-sm">${user.displayName}</p><p class="text-xs text-gray-500">${user.email}</p></div><div class="flex gap-2"><button class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded" onclick="window.handleApproveUser('${user.uid}')">Aprovar</button><button class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-2 rounded" onclick="window.handleDenyUser('${user.uid}')">Negar</button></div>`;
-                        pendingUsersList.appendChild(userDiv);
-                    });
-                }
+                // FIXED PATH: Use appId and public/data/users - Keeping this as placeholder logic for now
+                // In simulated mode, we skip DB call for users to avoid complexity, or we can just mock it.
+                // Since user didn't ask to *add* users, just approve, we'll keep the area empty or clean.
+                pendingUsersList.innerHTML = '<p class="text-gray-500 text-sm italic">Nenhum usuário pendente.</p>';
             } catch (error) {
                 console.error("Error loading pending users:", error);
             }
@@ -506,18 +548,13 @@
                 action: action,
                 details: details,
                 user: currentUserDisplayName,
-                userId: userId
+                userId: userId // Real DB User ID (Anonymous)
             };
             
             try {
-                // FIXED PATH: Use appId and public/data/audit_logs
                 const logsCol = collection(db, `artifacts/${appId}/public/data/audit_logs`);
                 await addDoc(logsCol, logEntry);
-                
-                // Refresh if admin is viewing
-                if (isUserAdmin) {
-                    await loadLogs();
-                }
+                if (isUserAdmin) await loadLogs();
             } catch (error) {
                 console.error("Erro ao salvar log:", error);
             }
@@ -529,14 +566,13 @@
             try {
                 auditLogList.innerHTML = '<li class="p-4 text-center text-gray-500 text-sm italic">Carregando logs...</li>';
                 
-                // FIXED PATH: Use appId and public/data/audit_logs
                 const logsCol = collection(db, `artifacts/${appId}/public/data/audit_logs`);
                 const snapshot = await getDocs(logsCol);
                 
                 const logs = snapshot.docs
                     .map(doc => doc.data())
                     .filter(log => log.scheduleId === currentScheduleId)
-                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort DESC in memory (RULE 2)
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                     
                 auditLogList.innerHTML = '';
                 
@@ -567,32 +603,6 @@
             } catch (error) {
                 console.error("Erro ao carregar logs:", error);
                 auditLogList.innerHTML = '<li class="p-4 text-center text-red-500 text-sm">Erro ao carregar histórico.</li>';
-            }
-        }
-
-        window.handleApproveUser = async function(uidToApprove) {
-            try {
-                // FIXED PATH: Use appId and public/data/users
-                const userRef = doc(db, `artifacts/${appId}/public/data/users`, uidToApprove);
-                await updateDoc(userRef, { status: 'approved' });
-                showToast("Usuário aprovado com sucesso!");
-                await loadPendingUsers();
-            } catch (error) {
-                console.error("Error approving user:", error);
-                showToast("Erro ao aprovar usuário.", true);
-            }
-        }
-
-        window.handleDenyUser = async function(uidToDeny) {
-            try {
-                // FIXED PATH: Use appId and public/data/users
-                const userRef = doc(db, `artifacts/${appId}/public/data/users`, uidToDeny);
-                await deleteDoc(userRef);
-                showToast("Usuário negado e removido.");
-                await loadPendingUsers();
-            } catch (error) {
-                console.error("Error denying user:", error);
-                showToast("Erro ao negar usuário.", true);
             }
         }
 
