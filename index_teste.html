@@ -223,8 +223,14 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
                 
-                // AUTHENTICATION STRATEGY: 
-                // We use environment auth for DB permission, but "Simulated Login" for user identity.
+                // AUTHENTICATION FIX: Force clear previous sessions to prevent conflicts
+                try {
+                    await signOut(auth);
+                } catch(e) {
+                    console.log("Cleanup signout skipped");
+                }
+
+                // Connect to correct secure environment
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -277,7 +283,7 @@
             }
             
             if (isUserAdmin) {
-                await loadPendingUsers(); // Although we don't have real pending users now, we keep the structure
+                await loadPendingUsers(); 
                 await loadLogs();
             }
         }
@@ -311,15 +317,12 @@
             appContent.classList.add('hidden');
             adminPanel.classList.add('hidden');
             initialMessage.classList.remove('hidden');
-            
-            // Note: We do NOT sign out of Firebase Auth to keep DB connection alive for next login
         }
 
         async function saveScheduleToFirestore(){
             if(!userId||!currentScheduleId)return;
             const schedulePayload={scheduleData,dateHeaders,monthName,year,originalCsvLines,lastUpdated:(new Date).toISOString()};
             try {
-                // FIXED PATH: Use appId and public/data/schedules
                 const scheduleRef=doc(db,`artifacts/${appId}/public/data/schedules`,currentScheduleId);
                 await setDoc(scheduleRef,schedulePayload);
                 showToast("Escala salva com sucesso!");
@@ -528,11 +531,24 @@
         async function loadPendingUsers() {
             if (!isUserAdmin) return;
             try {
-                // FIXED PATH: Use appId and public/data/users - Keeping this as placeholder logic for now
-                // In simulated mode, we skip DB call for users to avoid complexity, or we can just mock it.
-                // Since user didn't ask to *add* users, just approve, we'll keep the area empty or clean.
-                pendingUsersList.innerHTML = '<p class="text-gray-500 text-sm italic">Nenhum usuário pendente.</p>';
+                // FIXED PATH: Use appId and public/data/users
+                const usersCol = collection(db, `artifacts/${appId}/public/data/users`);
+                const userSnapshot = await getDocs(usersCol);
+                const pendingUsers = userSnapshot.docs.map(doc => doc.data()).filter(user => user.status === 'pending');
+                
+                if (pendingUsers.length === 0) {
+                    pendingUsersList.innerHTML = '<p class="text-gray-500 text-sm italic">Nenhum usuário pendente.</p>';
+                } else {
+                    pendingUsersList.innerHTML = '';
+                    pendingUsers.forEach(user => {
+                        const userDiv = document.createElement('div');
+                        userDiv.className = 'flex justify-between items-center bg-gray-50 p-2 rounded-md border border-gray-200';
+                        userDiv.innerHTML = `<div><p class="font-semibold text-sm">${user.displayName}</p><p class="text-xs text-gray-500">${user.email}</p></div><div class="flex gap-2"><button class="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded" onclick="window.handleApproveUser('${user.uid}')">Aprovar</button><button class="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-2 rounded" onclick="window.handleDenyUser('${user.uid}')">Negar</button></div>`;
+                        pendingUsersList.appendChild(userDiv);
+                    });
+                }
             } catch (error) {
+                // Fail silently or just log, don't crash
                 console.error("Error loading pending users:", error);
             }
         }
@@ -602,7 +618,33 @@
                 
             } catch (error) {
                 console.error("Erro ao carregar logs:", error);
-                auditLogList.innerHTML = '<li class="p-4 text-center text-red-500 text-sm">Erro ao carregar histórico.</li>';
+                auditLogList.innerHTML = '<li class="p-4 text-center text-red-500 text-sm">Erro ao carregar histórico. Verifique as permissões.</li>';
+            }
+        }
+
+        window.handleApproveUser = async function(uidToApprove) {
+            try {
+                // FIXED PATH: Use appId and public/data/users
+                const userRef = doc(db, `artifacts/${appId}/public/data/users`, uidToApprove);
+                await updateDoc(userRef, { status: 'approved' });
+                showToast("Usuário aprovado com sucesso!");
+                await loadPendingUsers();
+            } catch (error) {
+                console.error("Error approving user:", error);
+                showToast("Erro ao aprovar usuário.", true);
+            }
+        }
+
+        window.handleDenyUser = async function(uidToDeny) {
+            try {
+                // FIXED PATH: Use appId and public/data/users
+                const userRef = doc(db, `artifacts/${appId}/public/data/users`, uidToDeny);
+                await deleteDoc(userRef);
+                showToast("Usuário negado e removido.");
+                await loadPendingUsers();
+            } catch (error) {
+                console.error("Error denying user:", error);
+                showToast("Erro ao negar usuário.", true);
             }
         }
 
