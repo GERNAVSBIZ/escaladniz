@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Escala de Serviço</title>
+        <title>Escala de Serviço</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -17,6 +17,9 @@
         .selected-for-swap { outline: 3px solid #3b82f6; outline-offset: -2px; border-radius: 2px; }
         #toast-notification { transition: opacity 0.5s, transform 0.5s; }
     </style>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+   <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=2">
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
@@ -171,7 +174,6 @@
         const ADMIN_NAMES = ["Wilkson", "Adriano"];
         const MANAGER_NAME = "WILKSON";
 
-        // Variável initialScheduleData adicionada aqui
         let scheduleData=[], initialScheduleData=[], dateHeaders=[], monthName='', year='', originalCsvLines=[], isSwapMode=false, firstSelection=null, currentEditCell=null, currentScheduleId=null, pendingSwaps=[];
         
         const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons'), adminPanel = document.getElementById('admin-panel'), pendingUsersList = document.getElementById('pending-users-list'), pendingApprovalMessage = document.getElementById('pending-approval-message');
@@ -212,12 +214,35 @@
             }
         }
 
+        // === Helper para obter ID do mês atual ===
+        function getCurrentMonthScheduleId() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth(); // 0 = Janeiro
+            const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+            const monthName = monthNames[month];
+            const monthNum = String(month + 1).padStart(2, '0');
+            return `${monthNum}-${year}-${monthName}`;
+        }
+
         async function showFullApp() {
             appContent.classList.remove('hidden');
             initialMessage.classList.add('hidden');
             pendingApprovalMessage.classList.add('hidden');
             updateUIVisibility();
-            await loadSavedSchedules();
+            
+            // Carrega lista e obtém IDs disponíveis
+            const availableSchedules = await loadSavedSchedules();
+            
+            // Lógica de Auto-Carregamento do Mês Corrente
+            if (!currentScheduleId) {
+                const currentMonthId = getCurrentMonthScheduleId();
+                // Verifica se o ID do mês atual existe na lista carregada
+                if (availableSchedules.includes(currentMonthId)) {
+                    await loadScheduleFromFirestore(currentMonthId);
+                }
+            }
+            
             if (currentScheduleId) await loadPendingSwaps();
             if (isUserAdmin) await loadPendingUsers();
         }
@@ -245,7 +270,6 @@
         
         async function saveScheduleToFirestore(){
             if(!userId||!currentScheduleId)return;
-            // Salva também o initialScheduleData
             const schedulePayload={
                 scheduleData,
                 initialScheduleData,
@@ -267,17 +291,20 @@
         }
         
         async function loadSavedSchedules(){
-            if(!userId)return;
+            if(!userId) return [];
             try {
                 const schedulesCol=collection(db,`artifacts/${projectId}/schedules`);
                 const scheduleSnapshot=await getDocs(schedulesCol);
                 savedSchedulesList.innerHTML='';
+                const ids = []; // Lista para retornar IDs encontrados
+
                 if(scheduleSnapshot.empty){
                     savedSchedulesList.innerHTML='<p class="text-gray-500">Nenhuma escala salva encontrada.</p>'
                 } else {
                     const schedules=scheduleSnapshot.docs.map(doc=>({id:doc.id,...doc.data()}));
-                    schedules.sort((a, b) => a.id.localeCompare(b.id)); // Sort by new ID
+                    schedules.sort((a, b) => a.id.localeCompare(b.id));
                     schedules.forEach(schedule=>{
+                        ids.push(schedule.id); // Armazena ID
                         const button=document.createElement('button');
                         button.className="bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-100";
                         button.textContent=schedule.id;
@@ -285,9 +312,11 @@
                         savedSchedulesList.appendChild(button)
                     })
                 }
+                return ids;
             } catch(error) {
                 console.error("Error loading saved schedules:",error);
-                savedSchedulesList.innerHTML='<p class="text-red-500">Erro ao carregar escalas.</p>'
+                savedSchedulesList.innerHTML='<p class="text-red-500">Erro ao carregar escalas.</p>';
+                return [];
             }
         }
 
@@ -299,7 +328,6 @@
                     const data=docSnap.data();
                     ({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);
                     
-                    // Recupera os dados originais ou cria baseados nos atuais se for legado
                     if (data.initialScheduleData) {
                         initialScheduleData = data.initialScheduleData;
                     } else {
@@ -323,12 +351,10 @@
                 originalCsvLines=e.target.result.split(/\r\n?|\n/);
                 parseCSV(originalCsvLines);
                 if(scheduleData.length>0){
-                    // Cria uma cópia profunda dos dados como estado inicial
                     initialScheduleData = JSON.parse(JSON.stringify(scheduleData));
-
                     const MONTH_MAP_NUM = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
                     const monthNum = MONTH_MAP_NUM[monthName.toUpperCase()];
-                    currentScheduleId=`${monthNum}-${year}-${monthName.toUpperCase()}`; // New format
+                    currentScheduleId=`${monthNum}-${year}-${monthName.toUpperCase()}`; 
                     displayData();
                     await saveScheduleToFirestore();
                 }
@@ -350,7 +376,6 @@
             return new Date(year,effectiveMonth,parseInt(dateHeaders[dayIndex]));
         }
 
-        // renderTable Atualizado com a lógica de diff visual
         function renderTable() {
             const dayStatus = getDayStatusArray();
             const today = new Date();
@@ -388,17 +413,15 @@
                     let extraCellClasses = [];
                     let tooltip = '';
 
-                    // LÓGICA DE DETECÇÃO DE MUDANÇA
                     if (initialScheduleData[opIndex] && initialScheduleData[opIndex].shifts[dayIndex]) {
                         const originalShift = initialScheduleData[opIndex].shifts[dayIndex];
                         if (shift !== originalShift) {
-                            extraCellClasses.push('ring-4 ring-orange-400 ring-inset z-10'); // Borda laranja de destaque
+                            extraCellClasses.push('ring-4 ring-orange-400 ring-inset z-10');
                             tooltip = ` title="Originalmente: ${originalShift}"`;
                         }
                     }
 
                     if (isToday) {
-                         // Se não tiver mudança (tooltip vazio), mostra borda azul de hoje. Se tiver mudança, a laranja prevalece.
                         if(!tooltip) extraCellClasses.push('ring-2 ring-blue-500 z-10');
                     }
 
