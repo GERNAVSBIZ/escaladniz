@@ -45,17 +45,17 @@
             position: sticky;
             left: 0;
             background-color: white;
-            z-index: 30; /* Aumentado para garantir que fique acima do conteúdo rolado */
+            z-index: 30;
             border-right: 1px solid #e5e7eb;
-            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); /* Sombra sutil para destacar a coluna fixa */
+            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
         }
         
         /* Efeito PB para dias fora do mês */
         .grayscale-cell {
             filter: grayscale(100%);
             opacity: 0.5;
-            background-color: #f3f4f6 !important; /* Força fundo cinza */
-            color: #9ca3af !important; /* Força texto cinza */
+            background-color: #f3f4f6 !important;
+            color: #9ca3af !important;
         }
     </style>
 
@@ -225,21 +225,6 @@
 
         // --- Componentes Principais ---
 
-        const LoginScreen = ({ onLogin }) => (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6">
-                <div className="text-center mb-8">
-                    <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
-                        <i className="fas fa-calendar-alt text-3xl text-white"></i>
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-800">Escala DNIZ</h1>
-                    <p className="text-gray-500 mt-2">Gerencie suas escalas de forma simples.</p>
-                </div>
-                <Button onClick={onLogin} className="w-full max-w-xs">
-                    <i className="fab fa-google"></i> Entrar com Google
-                </Button>
-            </div>
-        );
-
         const PendingApprovalScreen = ({ onLogout }) => (
             <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50 p-6 text-center">
                 <i className="fas fa-clock text-5xl text-orange-400 mb-6"></i>
@@ -302,11 +287,9 @@
 
             // Hook para Auto-Scroll para o dia atual
             React.useEffect(() => {
-                // Pequeno delay para garantir que o DOM renderizou
                 const timer = setTimeout(() => {
                     const todayElement = document.getElementById('scroll-target-today');
                     if (scrollContainerRef.current && todayElement) {
-                        // Largura da coluna fixa (aprox 120px) + um pequeno padding
                         const stickyOffset = 120; 
                         const scrollPos = todayElement.offsetLeft - stickyOffset;
                         
@@ -317,7 +300,7 @@
                     }
                 }, 500);
                 return () => clearTimeout(timer);
-            }, [schedule.monthName]); // Executa quando a escala muda
+            }, [schedule.monthName]);
 
             const isTodayFunc = (dayStr, status) => {
                 if (status !== 'current') return false;
@@ -344,7 +327,7 @@
                                     return (
                                         <th 
                                             key={idx} 
-                                            id={isToday ? "scroll-target-today" : undefined} // Marcador para o scroll
+                                            id={isToday ? "scroll-target-today" : undefined}
                                             className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}
                                         >
                                             <div className={`text-xs font-bold ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
@@ -413,10 +396,12 @@
             // --- Effects ---
 
             React.useEffect(() => {
-                if (user && userData?.status === 'approved') {
-                    loadSchedulesList();
-                    if(userData.isAdmin) loadPendingUsers();
-                }
+                // Carregar lista assim que montar, não depende mais de 'user' ser aprovado (modo anônimo)
+                loadSchedulesList();
+            }, []);
+
+            React.useEffect(() => {
+                if (user && userData?.isAdmin) loadPendingUsers();
             }, [user, userData]);
 
             React.useEffect(() => {
@@ -454,7 +439,12 @@
                     const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/schedules`));
                     const ids = snap.docs.map(d => d.id).sort();
                     setSchedulesList(ids);
-                } catch (e) { console.error(e); }
+                } catch (e) { 
+                    console.error(e);
+                    if(e.code === 'permission-denied') {
+                        // Silently fail or show message if needed. Data won't load if rules block it.
+                    }
+                }
             };
 
             const loadSchedule = async (id) => {
@@ -467,15 +457,19 @@
             };
 
             const loadSwapRequests = async (scheduleId) => {
-                const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/swapRequests`));
-                const swaps = snap.docs.map(d => d.data()).filter(r => r.scheduleId === scheduleId);
-                setPendingSwaps(swaps);
+                try {
+                    const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/swapRequests`));
+                    const swaps = snap.docs.map(d => d.data()).filter(r => r.scheduleId === scheduleId);
+                    setPendingSwaps(swaps);
+                } catch (e) { console.error(e); }
             };
             
             const loadPendingUsers = async () => {
-                const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/users`));
-                const pending = snap.docs.map(d => d.data()).filter(u => u.status === 'pending');
-                setPendingUsers(pending);
+                try {
+                    const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/users`));
+                    const pending = snap.docs.map(d => d.data()).filter(u => u.status === 'pending');
+                    setPendingUsers(pending);
+                } catch (e) { console.error(e); }
             };
 
             const handleDeleteSchedule = async () => {
@@ -547,6 +541,12 @@
             };
 
             const handleCellClick = (opIndex, dayIndex, opName, shift, isCurrentMonth) => {
+                // Verificação de Login
+                if (!user || userData?.status !== 'approved') {
+                    showToast("Faça login para realizar ações.", "error");
+                    return;
+                }
+
                 if (!isCurrentMonth) return;
 
                 if (swapMode) {
@@ -612,12 +612,23 @@
                 } catch(e) { showToast("Erro na ação", "error"); }
             };
 
+            const toggleSwapMode = () => {
+                 if (!user || userData?.status !== 'approved') {
+                    showToast("Faça login para realizar trocas.", "error");
+                    return;
+                }
+                setSwapMode(!swapMode);
+                setSwapSelection(null);
+            };
+
             // --- Renders ---
 
             if (loading) return <div className="min-h-screen flex items-center justify-center"><i className="fas fa-spinner fa-spin text-4xl text-indigo-600"></i></div>;
-            if (!user) return <LoginScreen onLogin={login} />;
-            if (userData?.status !== 'approved') return <PendingApprovalScreen onLogout={logout} />;
+            
+            // Se estiver logado, mas pendente, bloqueia a tela
+            if (user && userData?.status !== 'approved') return <PendingApprovalScreen onLogout={logout} />;
 
+            // Se não estiver logado, ou se estiver logado e aprovado, renderiza o App Principal
             return (
                 <div className="min-h-screen pb-24">
                     {/* Header */}
@@ -629,14 +640,20 @@
                             <div>
                                 <h1 className="font-bold text-gray-800 leading-tight">Escala DNIZ</h1>
                                 <p className="text-xs text-gray-500">
-                                    {schedule ? `${schedule.monthName} ${schedule.year}` : 'Nenhuma escala'}
+                                    {schedule ? `${schedule.monthName} ${schedule.year}` : (user ? 'Nenhuma escala' : 'Modo Visitante')}
                                 </p>
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={logout} className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-full text-red-500 hover:bg-red-100">
-                                <i className="fas fa-sign-out-alt"></i>
-                            </button>
+                            {!user ? (
+                                <button onClick={login} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow hover:bg-indigo-700 flex items-center gap-2">
+                                    <i className="fab fa-google"></i> Entrar
+                                </button>
+                            ) : (
+                                <button onClick={logout} className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-full text-red-500 hover:bg-red-100">
+                                    <i className="fas fa-sign-out-alt"></i>
+                                </button>
+                            )}
                         </div>
                     </header>
 
@@ -646,7 +663,7 @@
                             <>
                                 <div className="mb-4">
                                     <Select 
-                                        options={schedulesList.length > 0 ? schedulesList.map(id => ({ value: id, label: id })) : [{value: '', label: 'Carregue uma escala no Admin'}]}
+                                        options={schedulesList.length > 0 ? schedulesList.map(id => ({ value: id, label: id })) : [{value: '', label: 'Nenhuma escala disponível'}]}
                                         value={currentScheduleId || ''}
                                         onChange={(e) => setCurrentScheduleId(e.target.value)}
                                     />
@@ -656,9 +673,9 @@
                                     <>
                                         <div className="flex gap-2 mb-4">
                                             <Button 
-                                                className="flex-1 text-sm" 
+                                                className={`flex-1 text-sm ${!user ? 'opacity-50' : ''}`}
                                                 variant={swapMode ? 'danger' : 'primary'}
-                                                onClick={() => { setSwapMode(!swapMode); setSwapSelection(null); }}
+                                                onClick={toggleSwapMode}
                                             >
                                                 <i className={`fas ${swapMode ? 'fa-times' : 'fa-exchange-alt'} mr-2`}></i>
                                                 {swapMode ? 'Cancelar Troca' : 'Trocar Turnos'}
@@ -666,12 +683,13 @@
                                         </div>
                                         {swapMode && <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-xs text-center font-medium">Toque no turno de origem, depois no destino (apenas mês atual).</div>}
 
-                                        {pendingSwaps.length > 0 && (
+                                        {pendingSwaps.length > 0 && user && (
                                             <div className="mb-6 space-y-2">
                                                 <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
                                                 {pendingSwaps.map(req => {
-                                                    const isMe = userData.displayName.toLowerCase().includes(req.recipient.opName.toLowerCase());
-                                                    if (!isMe && !userData.isAdmin) return null;
+                                                    // Proteção para não quebrar se userData for null (não deve acontecer aqui pois verificamos user &&)
+                                                    const isMe = userData?.displayName?.toLowerCase().includes(req.recipient.opName.toLowerCase());
+                                                    if (!isMe && !userData?.isAdmin) return null;
                                                     
                                                     return (
                                                         <div key={req.id} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500 text-sm">
@@ -716,6 +734,7 @@
                                     <div className="text-center py-10 text-gray-500">
                                         <i className="fas fa-folder-open text-4xl mb-2 text-gray-300"></i>
                                         <p>Nenhuma escala carregada ou selecionada.</p>
+                                        {!user && <p className="text-xs text-indigo-600 mt-2" onClick={login}>Faça login se você é Admin.</p>}
                                     </div>
                                 )}
                             </>
@@ -741,7 +760,7 @@
                             </div>
                         )}
 
-                        {activeTab === 'admin' && userData.isAdmin && (
+                        {activeTab === 'admin' && userData?.isAdmin && (
                             <div className="space-y-6">
                                 <div className="bg-white p-5 rounded-lg shadow-sm border border-indigo-100">
                                     <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -810,7 +829,7 @@
                             <i className="fas fa-chart-pie text-lg"></i>
                             <span className="text-[10px] font-bold">Resumo</span>
                         </button>
-                        {userData.isAdmin && (
+                        {userData?.isAdmin && (
                             <button onClick={() => setActiveTab('admin')} className={`p-4 flex flex-col items-center gap-1 ${activeTab === 'admin' ? 'text-indigo-600' : 'text-gray-400'}`}>
                                 <i className="fas fa-users-cog text-lg"></i>
                                 {pendingUsers.length > 0 && <span className="absolute top-3 ml-4 w-2 h-2 bg-red-500 rounded-full"></span>}
