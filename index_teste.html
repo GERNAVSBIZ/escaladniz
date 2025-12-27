@@ -48,6 +48,14 @@
             z-index: 10;
             border-right: 1px solid #e5e7eb;
         }
+        
+        /* Efeito PB para dias fora do mês */
+        .grayscale-cell {
+            filter: grayscale(100%);
+            opacity: 0.5;
+            background-color: #f3f4f6 !important; /* Força fundo cinza */
+            color: #9ca3af !important; /* Força texto cinza */
+        }
     </style>
 
     <script>
@@ -114,7 +122,6 @@
 
         // --- Hooks Personalizados ---
 
-        // Hook de Autenticação
         const useAuthUser = () => {
             const [user, setUser] = React.useState(null);
             const [userData, setUserData] = React.useState(null);
@@ -124,7 +131,6 @@
                 const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
                     if (currentUser) {
                         setUser(currentUser);
-                        // Verificar registro no Firestore
                         const userRef = doc(db, `artifacts/${firebaseConfig.projectId}/users`, currentUser.uid);
                         const userSnap = await getDoc(userRef);
                         
@@ -141,6 +147,11 @@
                             await setDoc(userRef, data);
                         } else {
                             data = userSnap.data();
+                            // Atualizar status de admin se o nome corresponder (caso mude a regra)
+                            if (ADMIN_NAMES.some(name => currentUser.displayName?.toLowerCase().includes(name.toLowerCase())) && !data.isAdmin) {
+                                data.isAdmin = true;
+                                await updateDoc(userRef, { isAdmin: true });
+                            }
                         }
                         setUserData(data);
                     } else {
@@ -233,21 +244,29 @@
             <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50 p-6 text-center">
                 <i className="fas fa-clock text-5xl text-orange-400 mb-6"></i>
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">Aguardando Aprovação</h2>
-                <p className="text-gray-600 mb-8">Seu cadastro foi recebido. Aguarde a liberação de um administrador.</p>
+                <p className="text-gray-600 mb-8">Seu cadastro foi recebido. Aguarde a liberação de um administrador (Wilkson/Adriano).</p>
                 <Button onClick={onLogout} variant="secondary">Sair</Button>
             </div>
         );
 
         // Sub-componente: Célula da Tabela
-        const ScheduleCell = ({ shift, onClick, isToday, isSelected, isChanged, isPendingSwap }) => {
+        const ScheduleCell = ({ shift, onClick, isToday, isSelected, isChanged, isPendingSwap, isCurrentMonth }) => {
             const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
             
             let classes = `h-10 w-10 md:h-12 md:w-12 flex items-center justify-center font-bold text-sm rounded-md transition-all `;
-            classes += isToday ? ' ring-2 ring-blue-500 ring-offset-1 ' : '';
-            classes += isSelected ? ' ring-4 ring-indigo-500 z-20 scale-110 shadow-lg ' : '';
-            classes += isChanged ? ' ring-2 ring-orange-400 z-10 ' : '';
-            classes += isPendingSwap ? ' animate-pulse ring-2 ring-green-500 z-10 ' : '';
-            classes += config.color + ' ' + config.text;
+            
+            if (isCurrentMonth) {
+                // Estilo normal para dias do mês
+                classes += config.color + ' ' + config.text;
+                classes += isToday ? ' ring-2 ring-blue-500 ring-offset-1 ' : '';
+                classes += isSelected ? ' ring-4 ring-indigo-500 z-20 scale-110 shadow-lg ' : '';
+                classes += isChanged ? ' ring-2 ring-orange-400 z-10 ' : '';
+                classes += isPendingSwap ? ' animate-pulse ring-2 ring-green-500 z-10 ' : '';
+            } else {
+                // Estilo PB para dias de outro mês
+                classes += ' grayscale-cell ';
+                classes += isSelected ? ' ring-4 ring-gray-400 z-20 ' : '';
+            }
 
             return (
                 <div className="p-1 min-w-[3rem] md:min-w-[3.5rem]" onClick={onClick}>
@@ -258,16 +277,36 @@
             );
         };
 
+        // Helper para determinar se é mês corrente
+        function getDayStatusArray(dateHeaders) {
+            const dayStatus = [];
+            let currentStatus = 'previous';
+            for (let i = 0; i < dateHeaders.length; i++) {
+                if (i > 0 && parseInt(dateHeaders[i]) < parseInt(dateHeaders[i-1])) {
+                    currentStatus = currentStatus === 'previous' ? 'current' : 'next';
+                }
+                if (dateHeaders[i] === '1' && currentStatus === 'previous') {
+                    currentStatus = 'current';
+                }
+                dayStatus.push(currentStatus);
+            }
+            return dayStatus;
+        }
+
         // Sub-componente: Tabela de Escala
         const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) => {
             const { scheduleData, dateHeaders, monthName } = schedule;
             const today = new Date();
             today.setHours(0,0,0,0);
+            
+            const dayStatuses = getDayStatusArray(dateHeaders);
 
-            // Helper simples para verificar se é hoje (aproximado pelo dia do mês)
-            const isTodayFunc = (dayStr) => {
+            const isTodayFunc = (dayStr, status) => {
+                if (status !== 'current') return false;
                 const d = parseInt(dayStr);
-                return d === today.getDate() && new Date().getMonth() === ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'].indexOf(monthName.toUpperCase());
+                // Mapeamento básico de mês
+                const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+                return d === today.getDate() && new Date().getMonth() === monthNames.indexOf(monthName.toUpperCase());
             };
 
             return (
@@ -276,11 +315,19 @@
                         <thead>
                             <tr className="bg-gray-100 border-b border-gray-200">
                                 <th className="p-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky-col min-w-[120px]">Operador</th>
-                                {dateHeaders.map((day, idx) => (
-                                    <th key={idx} className={`p-2 text-center min-w-[3rem] ${isTodayFunc(day) ? 'bg-blue-50' : ''}`}>
-                                        <div className={`text-xs font-bold ${isTodayFunc(day) ? 'text-blue-600' : 'text-gray-400'}`}>{day}</div>
-                                    </th>
-                                ))}
+                                {dateHeaders.map((day, idx) => {
+                                    const status = dayStatuses[idx];
+                                    const isCurrent = status === 'current';
+                                    const isToday = isTodayFunc(day, status);
+                                    
+                                    return (
+                                        <th key={idx} className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}>
+                                            <div className={`text-xs font-bold ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
+                                                {day}
+                                            </div>
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -290,22 +337,24 @@
                                         {op.name}
                                     </td>
                                     {op.shifts.map((shift, dayIndex) => {
-                                        // Verificar trocas pendentes
                                         const pending = pendingSwaps.find(s => 
                                             (parseInt(s.initiator.opIndex) === opIndex && parseInt(s.initiator.dayIndex) === dayIndex) || 
                                             (parseInt(s.recipient.opIndex) === opIndex && parseInt(s.recipient.dayIndex) === dayIndex)
                                         );
                                         
                                         const isSelected = selectedCell && selectedCell.opIndex == opIndex && selectedCell.dayIndex == dayIndex;
+                                        const status = dayStatuses[dayIndex];
+                                        const isCurrentMonth = status === 'current';
 
                                         return (
                                             <td key={dayIndex} className="p-0 text-center">
                                                 <ScheduleCell 
                                                     shift={shift} 
-                                                    isToday={isTodayFunc(dateHeaders[dayIndex])}
+                                                    isToday={isTodayFunc(dateHeaders[dayIndex], status)}
                                                     isSelected={isSelected}
                                                     isPendingSwap={!!pending}
-                                                    onClick={() => onCellClick(opIndex, dayIndex, op.name, shift)}
+                                                    isCurrentMonth={isCurrentMonth}
+                                                    onClick={() => onCellClick(opIndex, dayIndex, op.name, shift, isCurrentMonth)}
                                                 />
                                             </td>
                                         );
@@ -333,7 +382,7 @@
             const [isEditModalOpen, setEditModalOpen] = React.useState(false);
             const [selectedCell, setSelectedCell] = React.useState(null); // {opIndex, dayIndex, opName, shift}
             const [swapMode, setSwapMode] = React.useState(false);
-            const [swapSelection, setSwapSelection] = React.useState(null); // First selection for swap
+            const [swapSelection, setSwapSelection] = React.useState(null); 
             const [toast, setToast] = React.useState(null); // {msg, type}
 
             // --- Effects ---
@@ -349,6 +398,8 @@
                 if (currentScheduleId) {
                     loadSchedule(currentScheduleId);
                     loadSwapRequests(currentScheduleId);
+                } else {
+                    setSchedule(null);
                 }
             }, [currentScheduleId]);
 
@@ -361,7 +412,6 @@
                     if (schedulesList.includes(currentId)) {
                         setCurrentScheduleId(currentId);
                     } else {
-                        // Fallback to latest
                         setCurrentScheduleId(schedulesList[schedulesList.length - 1]);
                     }
                 }
@@ -403,7 +453,22 @@
                 setPendingUsers(pending);
             };
 
-            // Parse CSV Logic (Adapted)
+            const handleDeleteSchedule = async () => {
+                if (!currentScheduleId) return;
+                if (!confirm(`Tem certeza que deseja DELETAR PERMANENTEMENTE a escala ${currentScheduleId}?`)) return;
+
+                try {
+                    await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId));
+                    showToast("Escala deletada com sucesso!");
+                    setSchedule(null);
+                    setCurrentScheduleId(null);
+                    await loadSchedulesList();
+                } catch(error) {
+                    showToast("Erro ao deletar escala", "error");
+                    console.error(error);
+                }
+            };
+
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -412,7 +477,6 @@
                     const lines = event.target.result.split(/\r\n?|\n/);
                     let scheduleData=[], dateHeaders=[], monthName='', year='', DATE_ROW=-1, DATA_START=-1;
                     
-                    // Logic to find header
                     for(let i=10;i<lines.length;i++){
                         const parts=lines[i].split(';');
                         if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){
@@ -421,7 +485,6 @@
                     }
                     if(DATE_ROW === -1) { showToast('Formato CSV inválido', 'error'); return; }
 
-                    // Metadata
                     try {
                         const mLine = lines[0].split(';')[0].trim();
                         monthName = mLine.charAt(0).toUpperCase() + mLine.slice(1).toLowerCase();
@@ -451,22 +514,21 @@
                     
                     await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, newId), newSchedule);
                     showToast('Escala carregada com sucesso!');
-                    loadSchedulesList();
+                    await loadSchedulesList();
                     setCurrentScheduleId(newId);
+                    setActiveTab('home'); // Volta para a home para ver a escala
                 };
                 reader.readAsText(file, 'ISO-8859-1');
             };
 
-            const handleCellClick = (opIndex, dayIndex, opName, shift) => {
-                // Prevent editing/swapping past dates (simple check)
-                // In a real app, strict date checking is needed.
-                
+            const handleCellClick = (opIndex, dayIndex, opName, shift, isCurrentMonth) => {
+                if (!isCurrentMonth) return; // Não permite interagir com dias fora do mês
+
                 if (swapMode) {
                     if (!swapSelection) {
                         setSwapSelection({ opIndex, dayIndex, opName, shift });
                         showToast("Selecione o destino da troca");
                     } else {
-                        // Executar troca (Create Request)
                         if (swapSelection.opIndex === opIndex && swapSelection.dayIndex === dayIndex) {
                             setSwapSelection(null);
                             return;
@@ -488,7 +550,6 @@
                             });
                     }
                 } else {
-                    // Edit Mode
                     if (userData.isAdmin || userData.displayName.toLowerCase().includes(opName.toLowerCase())) {
                         setSelectedCell({ opIndex, dayIndex, opName, shift });
                         setEditModalOpen(true);
@@ -543,17 +604,11 @@
                             <div>
                                 <h1 className="font-bold text-gray-800 leading-tight">Escala DNIZ</h1>
                                 <p className="text-xs text-gray-500">
-                                    {schedule ? `${schedule.monthName} ${schedule.year}` : 'Selecione uma escala'}
+                                    {schedule ? `${schedule.monthName} ${schedule.year}` : 'Nenhuma escala'}
                                 </p>
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            {userData.isAdmin && (
-                                <label className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-full text-gray-600 cursor-pointer hover:bg-gray-200">
-                                    <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
-                                    <i className="fas fa-cloud-upload-alt"></i>
-                                </label>
-                            )}
                             <button onClick={logout} className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-full text-red-500 hover:bg-red-100">
                                 <i className="fas fa-sign-out-alt"></i>
                             </button>
@@ -564,78 +619,80 @@
                     <main className="p-4 fade-in">
                         {activeTab === 'home' && (
                             <>
-                                {/* Select Schedule */}
                                 <div className="mb-4">
                                     <Select 
-                                        options={schedulesList.map(id => ({ value: id, label: id }))}
+                                        options={schedulesList.length > 0 ? schedulesList.map(id => ({ value: id, label: id })) : [{value: '', label: 'Carregue uma escala no Admin'}]}
                                         value={currentScheduleId || ''}
                                         onChange={(e) => setCurrentScheduleId(e.target.value)}
                                     />
                                 </div>
 
-                                {/* Controls */}
-                                <div className="flex gap-2 mb-4">
-                                    <Button 
-                                        className="flex-1 text-sm" 
-                                        variant={swapMode ? 'danger' : 'primary'}
-                                        onClick={() => { setSwapMode(!swapMode); setSwapSelection(null); }}
-                                    >
-                                        <i className={`fas ${swapMode ? 'fa-times' : 'fa-exchange-alt'} mr-2`}></i>
-                                        {swapMode ? 'Cancelar Troca' : 'Trocar Turnos'}
-                                    </Button>
-                                </div>
-                                {swapMode && <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-xs text-center font-medium">Toque no turno de origem, depois no destino.</div>}
+                                {schedule ? (
+                                    <>
+                                        <div className="flex gap-2 mb-4">
+                                            <Button 
+                                                className="flex-1 text-sm" 
+                                                variant={swapMode ? 'danger' : 'primary'}
+                                                onClick={() => { setSwapMode(!swapMode); setSwapSelection(null); }}
+                                            >
+                                                <i className={`fas ${swapMode ? 'fa-times' : 'fa-exchange-alt'} mr-2`}></i>
+                                                {swapMode ? 'Cancelar Troca' : 'Trocar Turnos'}
+                                            </Button>
+                                        </div>
+                                        {swapMode && <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-xs text-center font-medium">Toque no turno de origem, depois no destino (apenas mês atual).</div>}
 
-                                {/* Notifications / Swaps */}
-                                {pendingSwaps.length > 0 && (
-                                    <div className="mb-6 space-y-2">
-                                        <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
-                                        {pendingSwaps.map(req => {
-                                            const isMe = userData.displayName.toLowerCase().includes(req.recipient.opName.toLowerCase());
-                                            if (!isMe && !userData.isAdmin) return null;
-                                            
-                                            return (
-                                                <div key={req.id} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500 text-sm">
-                                                    <p className="mb-2">
-                                                        <span className="font-bold">{req.initiator.opName}</span> ({req.initiator.shift}) <i className="fas fa-arrow-right text-gray-400 mx-1"></i> <span className="font-bold">{req.recipient.opName}</span> ({req.recipient.shift})
-                                                    </p>
-                                                    {isMe && (
-                                                        <div className="flex gap-2 mt-2">
-                                                            <button onClick={async () => {
-                                                                // Accept Logic
-                                                                const newData = [...schedule.scheduleData];
-                                                                const i = req.initiator, r = req.recipient;
-                                                                newData[i.opIndex].shifts[i.dayIndex] = r.shift;
-                                                                newData[r.opIndex].shifts[r.dayIndex] = i.shift;
-                                                                await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), { scheduleData: newData });
-                                                                await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
-                                                                setSchedule({ ...schedule, scheduleData: newData });
-                                                                loadSwapRequests(currentScheduleId);
-                                                                showToast("Troca aceita!");
-                                                            }} className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold">Aceitar</button>
-                                                            
-                                                            <button onClick={async () => {
-                                                                await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
-                                                                loadSwapRequests(currentScheduleId);
-                                                                showToast("Recusada");
-                                                            }} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Recusar</button>
+                                        {pendingSwaps.length > 0 && (
+                                            <div className="mb-6 space-y-2">
+                                                <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
+                                                {pendingSwaps.map(req => {
+                                                    const isMe = userData.displayName.toLowerCase().includes(req.recipient.opName.toLowerCase());
+                                                    if (!isMe && !userData.isAdmin) return null;
+                                                    
+                                                    return (
+                                                        <div key={req.id} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500 text-sm">
+                                                            <p className="mb-2">
+                                                                <span className="font-bold">{req.initiator.opName}</span> ({req.initiator.shift}) <i className="fas fa-arrow-right text-gray-400 mx-1"></i> <span className="font-bold">{req.recipient.opName}</span> ({req.recipient.shift})
+                                                            </p>
+                                                            {isMe && (
+                                                                <div className="flex gap-2 mt-2">
+                                                                    <button onClick={async () => {
+                                                                        const newData = [...schedule.scheduleData];
+                                                                        const i = req.initiator, r = req.recipient;
+                                                                        newData[i.opIndex].shifts[i.dayIndex] = r.shift;
+                                                                        newData[r.opIndex].shifts[r.dayIndex] = i.shift;
+                                                                        await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), { scheduleData: newData });
+                                                                        await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
+                                                                        setSchedule({ ...schedule, scheduleData: newData });
+                                                                        loadSwapRequests(currentScheduleId);
+                                                                        showToast("Troca aceita!");
+                                                                    }} className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold">Aceitar</button>
+                                                                    
+                                                                    <button onClick={async () => {
+                                                                        await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
+                                                                        loadSwapRequests(currentScheduleId);
+                                                                        showToast("Recusada");
+                                                                    }} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Recusar</button>
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            )
-                                        })}
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <ScheduleTable 
+                                            schedule={schedule} 
+                                            pendingSwaps={pendingSwaps}
+                                            onCellClick={handleCellClick}
+                                            selectedCell={swapSelection || selectedCell}
+                                        />
+                                    </>
+                                ) : (
+                                    <div className="text-center py-10 text-gray-500">
+                                        <i className="fas fa-folder-open text-4xl mb-2 text-gray-300"></i>
+                                        <p>Nenhuma escala carregada ou selecionada.</p>
                                     </div>
                                 )}
-
-                                {/* Table */}
-                                {schedule ? (
-                                    <ScheduleTable 
-                                        schedule={schedule} 
-                                        pendingSwaps={pendingSwaps}
-                                        onCellClick={handleCellClick}
-                                        selectedCell={swapSelection || selectedCell}
-                                    />
-                                ) : <Loader />}
                             </>
                         )}
 
@@ -643,7 +700,15 @@
                             <div className="space-y-4">
                                 <h2 className="text-xl font-bold text-gray-800">Estatísticas</h2>
                                 {schedule.scheduleData.map((op, idx) => {
-                                    const hours = op.shifts.reduce((acc, s) => acc + (SHIFT_CONFIG[s]?.hours || 0), 0);
+                                    // Cálculo simples de horas (apenas mês corrente se quisesse ser muito preciso, mas aqui soma tudo visível na linha)
+                                    // Para ser exato com o pedido PB, deveríamos somar apenas 'current'. 
+                                    // Melhoria: Usar getDayStatusArray
+                                    const statuses = getDayStatusArray(schedule.dateHeaders);
+                                    const hours = op.shifts.reduce((acc, s, i) => {
+                                        if (statuses[i] !== 'current') return acc;
+                                        return acc + (SHIFT_CONFIG[s]?.hours || 0);
+                                    }, 0);
+
                                     return (
                                         <div key={idx} className="bg-white p-4 rounded-lg shadow-sm flex justify-between items-center">
                                             <span className="font-medium text-gray-700">{op.name}</span>
@@ -655,19 +720,60 @@
                         )}
 
                         {activeTab === 'admin' && userData.isAdmin && (
-                            <div className="space-y-4">
-                                <h2 className="text-xl font-bold text-gray-800">Administração</h2>
-                                {pendingUsers.length === 0 && <p className="text-gray-500">Nenhuma aprovação pendente.</p>}
-                                {pendingUsers.map(u => (
-                                    <div key={u.uid} className="bg-white p-4 rounded-lg shadow-sm">
-                                        <p className="font-bold">{u.displayName}</p>
-                                        <p className="text-sm text-gray-500 mb-3">{u.email}</p>
-                                        <div className="flex gap-2">
-                                            <Button className="flex-1 h-10 text-xs" variant="success" onClick={() => handleAdminAction(u.uid, 'approve')}>Aprovar</Button>
-                                            <Button className="flex-1 h-10 text-xs" variant="danger" onClick={() => handleAdminAction(u.uid, 'deny')}>Negar</Button>
-                                        </div>
+                            <div className="space-y-6">
+                                <div className="bg-white p-5 rounded-lg shadow-sm border border-indigo-100">
+                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fas fa-cog text-indigo-600"></i> Gerenciamento de Escalas
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <label className="block">
+                                            <span className="text-sm font-semibold text-gray-600 mb-1 block">Carregar Nova Escala (CSV)</span>
+                                            <div className="flex items-center justify-center w-full">
+                                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                        <i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                                        <p className="text-sm text-gray-500"><span className="font-semibold">Clique para enviar</span></p>
+                                                    </div>
+                                                    <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+                                                </label>
+                                            </div>
+                                        </label>
+
+                                        {currentScheduleId && (
+                                            <div className="pt-2 border-t border-gray-100">
+                                                 <span className="text-sm font-semibold text-gray-600 mb-2 block">Ações de Perigo</span>
+                                                <Button variant="danger" className="w-full" onClick={handleDeleteSchedule}>
+                                                    <i className="fas fa-trash-alt"></i> Deletar Escala Atual
+                                                </Button>
+                                                <p className="text-xs text-red-400 mt-1 text-center">Ação irreversível para: {currentScheduleId}</p>
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
+                                </div>
+
+                                <div className="bg-white p-5 rounded-lg shadow-sm border border-orange-100">
+                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fas fa-user-shield text-orange-500"></i> Aprovação de Usuários
+                                    </h3>
+                                    {pendingUsers.length === 0 ? (
+                                        <p className="text-gray-500 text-sm text-center py-2">Nenhum usuário pendente.</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {pendingUsers.map(u => (
+                                                <div key={u.uid} className="bg-gray-50 p-3 rounded border border-gray-200">
+                                                    <div className="mb-2">
+                                                        <p className="font-bold text-sm">{u.displayName}</p>
+                                                        <p className="text-xs text-gray-500">{u.email}</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Button className="flex-1 h-8 text-xs" variant="success" onClick={() => handleAdminAction(u.uid, 'approve')}>Aprovar</Button>
+                                                        <Button className="flex-1 h-8 text-xs" variant="danger" onClick={() => handleAdminAction(u.uid, 'deny')}>Negar</Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </main>
@@ -703,7 +809,7 @@
                             <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in">
                                 <div className="p-4 border-b bg-gray-50">
                                     <h3 className="font-bold text-gray-800">Editar Turno</h3>
-                                    <p className="text-sm text-gray-500">{selectedCell.opName} - {selectedCell.dayIndex + 1}</p>
+                                    <p className="text-sm text-gray-500">{selectedCell.opName} - Dia {selectedCell.dayIndex + 1}</p>
                                 </div>
                                 <div className="p-6">
                                     <Select 
