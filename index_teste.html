@@ -396,7 +396,7 @@
             // --- Effects ---
 
             React.useEffect(() => {
-                // Carregar lista assim que montar, não depende mais de 'user' ser aprovado (modo anônimo)
+                // Carregar lista assim que montar
                 loadSchedulesList();
             }, []);
 
@@ -418,7 +418,9 @@
                 if (schedulesList.length > 0 && !currentScheduleId) {
                     const today = new Date();
                     const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-                    const currentId = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}-${monthNames[today.getMonth()]}`;
+                    // ALTERADO: Formato YYYY-MM para garantir ordenação correta e seleção automática
+                    const currentId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${monthNames[today.getMonth()]}`;
+                    
                     if (schedulesList.includes(currentId)) {
                         setCurrentScheduleId(currentId);
                     } else {
@@ -442,7 +444,7 @@
                 } catch (e) { 
                     console.error(e);
                     if(e.code === 'permission-denied') {
-                        // Silently fail or show message if needed. Data won't load if rules block it.
+                        // Silently fail or show message
                     }
                 }
             };
@@ -527,7 +529,8 @@
                     }
 
                     const MONTH_MAP = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
-                    const newId = `${MONTH_MAP[monthName.toUpperCase()]}-${year}-${monthName.toUpperCase()}`;
+                    // ALTERADO: Formato YYYY-MM para ordenação correta
+                    const newId = `${year}-${MONTH_MAP[monthName.toUpperCase()]}-${monthName.toUpperCase()}`;
                     
                     const newSchedule = { scheduleData, dateHeaders, monthName, year, originalCsvLines: lines };
                     
@@ -687,7 +690,6 @@
                                             <div className="mb-6 space-y-2">
                                                 <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
                                                 {pendingSwaps.map(req => {
-                                                    // Proteção para não quebrar se userData for null (não deve acontecer aqui pois verificamos user &&)
                                                     const isMe = userData?.displayName?.toLowerCase().includes(req.recipient.opName.toLowerCase());
                                                     if (!isMe && !userData?.isAdmin) return null;
                                                     
