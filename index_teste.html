@@ -45,8 +45,9 @@
             position: sticky;
             left: 0;
             background-color: white;
-            z-index: 10;
+            z-index: 30; /* Aumentado para garantir que fique acima do conteúdo rolado */
             border-right: 1px solid #e5e7eb;
+            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1); /* Sombra sutil para destacar a coluna fixa */
         }
         
         /* Efeito PB para dias fora do mês */
@@ -147,7 +148,6 @@
                             await setDoc(userRef, data);
                         } else {
                             data = userSnap.data();
-                            // Atualizar status de admin se o nome corresponder (caso mude a regra)
                             if (ADMIN_NAMES.some(name => currentUser.displayName?.toLowerCase().includes(name.toLowerCase())) && !data.isAdmin) {
                                 data.isAdmin = true;
                                 await updateDoc(userRef, { isAdmin: true });
@@ -256,14 +256,12 @@
             let classes = `h-10 w-10 md:h-12 md:w-12 flex items-center justify-center font-bold text-sm rounded-md transition-all `;
             
             if (isCurrentMonth) {
-                // Estilo normal para dias do mês
                 classes += config.color + ' ' + config.text;
                 classes += isToday ? ' ring-2 ring-blue-500 ring-offset-1 ' : '';
                 classes += isSelected ? ' ring-4 ring-indigo-500 z-20 scale-110 shadow-lg ' : '';
                 classes += isChanged ? ' ring-2 ring-orange-400 z-10 ' : '';
                 classes += isPendingSwap ? ' animate-pulse ring-2 ring-green-500 z-10 ' : '';
             } else {
-                // Estilo PB para dias de outro mês
                 classes += ' grayscale-cell ';
                 classes += isSelected ? ' ring-4 ring-gray-400 z-20 ' : '';
             }
@@ -277,7 +275,7 @@
             );
         };
 
-        // Helper para determinar se é mês corrente
+        // Helper para status do dia
         function getDayStatusArray(dateHeaders) {
             const dayStatus = [];
             let currentStatus = 'previous';
@@ -300,17 +298,40 @@
             today.setHours(0,0,0,0);
             
             const dayStatuses = getDayStatusArray(dateHeaders);
+            const scrollContainerRef = React.useRef(null);
+
+            // Hook para Auto-Scroll para o dia atual
+            React.useEffect(() => {
+                // Pequeno delay para garantir que o DOM renderizou
+                const timer = setTimeout(() => {
+                    const todayElement = document.getElementById('scroll-target-today');
+                    if (scrollContainerRef.current && todayElement) {
+                        // Largura da coluna fixa (aprox 120px) + um pequeno padding
+                        const stickyOffset = 120; 
+                        const scrollPos = todayElement.offsetLeft - stickyOffset;
+                        
+                        scrollContainerRef.current.scrollTo({
+                            left: scrollPos > 0 ? scrollPos : 0,
+                            behavior: 'smooth'
+                        });
+                    }
+                }, 500);
+                return () => clearTimeout(timer);
+            }, [schedule.monthName]); // Executa quando a escala muda
 
             const isTodayFunc = (dayStr, status) => {
                 if (status !== 'current') return false;
                 const d = parseInt(dayStr);
-                // Mapeamento básico de mês
                 const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
                 return d === today.getDate() && new Date().getMonth() === monthNames.indexOf(monthName.toUpperCase());
             };
 
             return (
-                <div className="overflow-auto custom-scrollbar bg-white rounded-xl shadow-sm border border-gray-200 -mx-4 md:mx-0">
+                <div 
+                    id="table-container"
+                    ref={scrollContainerRef} 
+                    className="overflow-auto custom-scrollbar bg-white rounded-xl shadow-sm border border-gray-200 -mx-4 md:mx-0 relative"
+                >
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="bg-gray-100 border-b border-gray-200">
@@ -321,7 +342,11 @@
                                     const isToday = isTodayFunc(day, status);
                                     
                                     return (
-                                        <th key={idx} className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}>
+                                        <th 
+                                            key={idx} 
+                                            id={isToday ? "scroll-target-today" : undefined} // Marcador para o scroll
+                                            className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}
+                                        >
                                             <div className={`text-xs font-bold ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
                                                 {day}
                                             </div>
@@ -380,10 +405,10 @@
             
             // UI States
             const [isEditModalOpen, setEditModalOpen] = React.useState(false);
-            const [selectedCell, setSelectedCell] = React.useState(null); // {opIndex, dayIndex, opName, shift}
+            const [selectedCell, setSelectedCell] = React.useState(null); 
             const [swapMode, setSwapMode] = React.useState(false);
             const [swapSelection, setSwapSelection] = React.useState(null); 
-            const [toast, setToast] = React.useState(null); // {msg, type}
+            const [toast, setToast] = React.useState(null);
 
             // --- Effects ---
 
@@ -516,13 +541,13 @@
                     showToast('Escala carregada com sucesso!');
                     await loadSchedulesList();
                     setCurrentScheduleId(newId);
-                    setActiveTab('home'); // Volta para a home para ver a escala
+                    setActiveTab('home'); 
                 };
                 reader.readAsText(file, 'ISO-8859-1');
             };
 
             const handleCellClick = (opIndex, dayIndex, opName, shift, isCurrentMonth) => {
-                if (!isCurrentMonth) return; // Não permite interagir com dias fora do mês
+                if (!isCurrentMonth) return;
 
                 if (swapMode) {
                     if (!swapSelection) {
@@ -596,7 +621,7 @@
             return (
                 <div className="min-h-screen pb-24">
                     {/* Header */}
-                    <header className="bg-white shadow-sm px-4 py-3 flex justify-between items-center sticky top-0 z-30">
+                    <header className="bg-white shadow-sm px-4 py-3 flex justify-between items-center sticky top-0 z-40">
                         <div className="flex items-center gap-2">
                             <div className="bg-indigo-600 text-white p-2 rounded-lg">
                                 <i className="fas fa-layer-group"></i>
@@ -700,9 +725,6 @@
                             <div className="space-y-4">
                                 <h2 className="text-xl font-bold text-gray-800">Estatísticas</h2>
                                 {schedule.scheduleData.map((op, idx) => {
-                                    // Cálculo simples de horas (apenas mês corrente se quisesse ser muito preciso, mas aqui soma tudo visível na linha)
-                                    // Para ser exato com o pedido PB, deveríamos somar apenas 'current'. 
-                                    // Melhoria: Usar getDayStatusArray
                                     const statuses = getDayStatusArray(schedule.dateHeaders);
                                     const hours = op.shifts.reduce((acc, s, i) => {
                                         if (statuses[i] !== 'current') return acc;
