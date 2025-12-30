@@ -488,6 +488,58 @@
                 }
             };
 
+            // Função para Download do CSV (Adicionada)
+            const handleDownloadCSV = () => {
+                if (!schedule) {
+                    showToast("Nenhuma escala carregada para baixar", "error");
+                    return;
+                }
+
+                try {
+                    // Reconstrói o formato CSV (Compatível com o Parser de Importação)
+                    let lines = [];
+                    
+                    // Cabeçalhos (Linhas 0 a 3 - Simula o cabeçalho original)
+                    lines.push(`${schedule.monthName};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`); // Mês
+                    lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+                    lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+                    lines.push(`${schedule.year};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`); // Ano
+                    
+                    // Linhas de preenchimento (4 a 10) para garantir que o parser encontre a linha de datas no lugar certo
+                    for(let i=4; i<11; i++) {
+                         lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"); 
+                    }
+
+                    // Linha de Datas (O parser espera: ;1;2;3...)
+                    lines.push(";" + schedule.dateHeaders.join(";"));
+
+                    // Linhas de Dados (Operadores e Turnos)
+                    schedule.scheduleData.forEach(op => {
+                        // Formato: "Nome";A;B;F...
+                        lines.push(`"${op.name}";${op.shifts.join(";")}`);
+                    });
+
+                    const csvContent = lines.join("\r\n");
+                    
+                    // Cria o Blob (UTF-8 com BOM para acentuação funcionar no Excel)
+                    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Cria o link invisível e clica
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `Escala_${schedule.monthName}_${schedule.year}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    showToast("Download iniciado!");
+                } catch (e) {
+                    console.error(e);
+                    showToast("Erro ao gerar CSV", "error");
+                }
+            };
+
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -779,6 +831,18 @@
                                                 </label>
                                             </div>
                                         </label>
+
+                                        {currentScheduleId && (
+                                            <div className="pt-2">
+                                                <Button 
+                                                    variant="secondary" 
+                                                    className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50" 
+                                                    onClick={handleDownloadCSV}
+                                                >
+                                                    <i className="fas fa-file-csv mr-2"></i> Baixar Escala Atual (.csv)
+                                                </Button>
+                                            </div>
+                                        )}
 
                                         {currentScheduleId && (
                                             <div className="pt-2 border-t border-gray-100">
