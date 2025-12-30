@@ -2,564 +2,941 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Escala de Serviço</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Escala DNIZ Mobile</title>
+    
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
-        #table-container { max-height: 70vh; overflow: auto; }
-        .selected-for-swap { outline: 3px solid #3b82f6; outline-offset: -2px; border-radius: 2px; }
-        #toast-notification { transition: opacity 0.5s, transform 0.5s; }
-    </style>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+        /* CSS Reset e Otimizações Mobile */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
 
-   <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=2">
-</head>
-<body class="p-4 md:p-8">
-    <div class="max-w-7xl mx-auto">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-6">
-            <div class="text-center md:text-left">
-                <img src="dniz.png" alt="Logo DNIZ" class="h-16 mx-auto md:mx-0" onerror="this.onerror=null;this.src='https://placehold.co/150x64/ffffff/000000?text=DNIZ';">
-                <h1 class="text-2xl font-bold text-gray-800 mt-1">ESCALAS DNIZ</h1>
-            </div>
-            <div id="auth-container" class="mt-4 md:mt-0 flex items-center gap-4">
-                <p id="user-info" class="text-sm font-medium text-gray-600 hidden"></p>
-                <button id="login-btn" class="bg-white text-gray-700 font-bold py-2 px-4 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors shadow-sm flex items-center gap-2">
-                    <i class="fab fa-google"></i> Login com Google
-                </button>
-                <button id="logout-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors shadow-sm hidden">
-                    Sair
-                </button>
-            </div>
-        </header>
-
-        <section id="admin-panel" class="mb-8 bg-orange-100 border-l-4 border-orange-500 p-4 rounded-lg hidden">
-            <h2 class="text-xl font-semibold text-orange-800 mb-4">Painel do Administrador</h2>
-            <h3 class="font-semibold text-gray-700 mb-2">Usuários Pendentes de Aprovação:</h3>
-            <div id="pending-users-list" class="space-y-2">
-                <p class="text-gray-500">Nenhum usuário pendente.</p>
-            </div>
-        </section>
-
-        <div id="app-content" class="hidden">
-             <section id="notifications-section" class="mb-6"></section>
-
-            <div id="admin-controls" class="flex justify-end mb-4">
-                 <label for="csv-upload" class="cursor-pointer bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center gap-2">
-                    <i class="fas fa-upload"></i>
-                    Carregar Nova Escala (CSV)
-                </label>
-                <input type="file" id="csv-upload" class="hidden" accept=".csv">
-            </div>
-
-            <section id="saved-schedules-section" class="mb-8">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Escalas Salvas (Compartilhadas)</h2>
-                <div id="saved-schedules-list" class="flex flex-wrap gap-3 items-center">
-                    <p id="loading-schedules" class="text-gray-500">Carregando escalas salvas...</p>
-                </div>
-            </section>
-
-            <div id="summary-section" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 hidden">
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-indigo-100 p-3 rounded-full"><i class="fas fa-users fa-2x text-indigo-600"></i></div><div><p class="text-gray-500 text-sm">Operadores</p><p id="total-operators" class="text-2xl font-bold text-gray-800">0</p></div></div>
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-purple-100 p-3 rounded-full"><i class="fas fa-briefcase fa-2x text-purple-600"></i></div><div><p class="text-gray-500 text-sm">Turnos de Trabalho</p><p id="total-shifts" class="text-2xl font-bold text-gray-800">0</p></div></div>
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-sky-100 p-3 rounded-full"><i class="fas fa-calendar-day fa-2x text-sky-600"></i></div><div><p class="text-gray-500 text-sm">Mês da Escala</p><p id="scale-month" class="text-2xl font-bold text-gray-800">-</p></div></div>
-                <div class="bg-white p-6 rounded-xl shadow-lg flex items-center gap-4"><div class="bg-amber-100 p-3 rounded-full"><i class="fas fa-hourglass-half fa-2x text-amber-600"></i></div><div><p class="text-gray-500 text-sm">Horas Totais (Mês)</p><p id="total-hours" class="text-2xl font-bold text-gray-800">0h</p></div></div>
-            </div>
-            
-            <main id="main-content" class="bg-white p-6 rounded-xl shadow-lg hidden">
-                <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <h2 id="table-title" class="text-xl font-semibold text-gray-700">Escala Mensal</h2>
-                    <div id="action-buttons" class="flex gap-2 flex-wrap">
-                        <button id="swap-shifts-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"><i class="fas fa-exchange-alt mr-2"></i><span id="swap-btn-text">Trocar Turnos</span></button>
-                        <button id="export-csv" class="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 hidden"><i class="fas fa-file-download mr-2"></i>Exportar CSV</button>
-                        <button id="delete-schedule-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700"><i class="fas fa-trash-alt mr-2"></i>Deletar Escala</button>
-                    </div>
-                </div>
-                <div id="table-container" class="custom-scrollbar border border-gray-200 rounded-lg">
-                    <table id="schedule-table" class="w-full text-center text-sm"></table>
-                </div>
-            </main>
-
-            <section id="stats-section" class="mt-8 hidden">
-                <h2 class="text-xl font-semibold text-gray-700 mb-4">Estatísticas do Mês</h2>
-                <div id="operator-stats" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
-            </section>
-        </div>
-
-        <div id="initial-message" class="text-center py-20">
-            <i class="fas fa-sign-in-alt fa-4x text-gray-400 mb-4"></i>
-            <h2 class="text-2xl font-semibold text-gray-600">Bem-vindo!</h2>
-            <p class="text-gray-500 mt-2">Faça login com sua conta Google para gerenciar as escalas.</p>
-        </div>
+        /* Padronização de Inputs para Mobile */
+        input[type="date"], input[type="time"], select, input[type="text"], input[type="number"] {
+            -webkit-appearance: none;
+            appearance: none;
+            font-size: 16px; /* Previne zoom no iOS */
+        }
         
-        <div id="pending-approval-message" class="text-center py-20 hidden">
-            <i class="fas fa-clock fa-4x text-yellow-500 mb-4"></i>
-            <h2 class="text-2xl font-semibold text-gray-600">Aguardando Aprovação</h2>
-            <p class="text-gray-500 mt-2">Sua conta foi registrada e está aguardando a aprovação de um administrador.</p>
-        </div>
-    </div>
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        /* Animações */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Sticky Column na Tabela */
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            background-color: white;
+            z-index: 30;
+            border-right: 1px solid #e5e7eb;
+            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
+        }
+        
+        /* Efeito PB para dias fora do mês */
+        .grayscale-cell {
+            filter: grayscale(100%);
+            opacity: 0.5;
+            background-color: #f3f4f6 !important;
+            color: #9ca3af !important;
+        }
+    </style>
 
-    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
-            <h3 class="text-lg font-bold mb-4">Alterar Turno</h3>
-            <p class="mb-2"><strong>Operador:</strong> <span id="modal-operator"></span></p>
-            <p class="mb-4"><strong>Data:</strong> <span id="modal-date"></span></p>
-            <select id="modal-shift-select" class="w-full p-2 border rounded-md"></select>
-            <div class="mt-6 flex justify-end gap-4">
-                <button id="modal-cancel" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
-                <button id="modal-save" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Salvar</button>
-            </div>
-        </div>
-    </div>
+    <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.position = 'fixed';
+            errorDiv.style.top = '0';
+            errorDiv.style.left = '0';
+            errorDiv.style.width = '100%';
+            errorDiv.style.background = '#fee2e2';
+            errorDiv.style.color = '#991b1b';
+            errorDiv.style.padding = '20px';
+            errorDiv.style.zIndex = '9999';
+            errorDiv.innerHTML = `<strong>Erro Crítico:</strong> ${message} <br> <small>${source}:${lineno}</small>`;
+            document.body.appendChild(errorDiv);
+        };
+    </script>
+</head>
+<body>
+    <div id="root"></div>
 
-    <div id="delete-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
-            <h3 class="text-lg font-bold mb-2 text-gray-800">Confirmar Exclusão</h3>
-            <p class="mb-6 text-gray-600">Tem certeza que deseja deletar a escala <strong id="delete-schedule-name" class="text-red-600"></strong>? Esta ação não pode ser desfeita.</p>
-            <div class="mt-6 flex justify-end gap-4">
-                <button id="delete-cancel-btn" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Cancelar</button>
-                <button id="delete-confirm-btn" class="bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700">Deletar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="toast-notification" class="fixed bottom-5 right-5 bg-green-500 text-white py-3 px-6 rounded-lg shadow-lg opacity-0 transform translate-y-10">
-        <i class="fas fa-check-circle mr-2"></i>
-        <span id="toast-message"></span>
-    </div>
-
-    <script type="module">
+    <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- Configuração & Constantes ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",
+            authDomain: "dashboard-escala.firebaseapp.com",
+            projectId: "dashboard-escala",
+            storageBucket: "dashboard-escala.appspot.com",
+            messagingSenderId: "451393122794",
+            appId: "1:451393122794:web:24f125f11ef3260b770293"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
         const SHIFT_CONFIG = {
-            // Turnos de Trabalho Padrão (Mantidos como base)
             'A': { hours: 8, color: 'bg-yellow-200', text: 'text-yellow-800', name: 'Manhã' },
             'B': { hours: 8, color: 'bg-sky-200', text: 'text-sky-800', name: 'Tarde' },
             'C': { hours: 8, color: 'bg-blue-200', text: 'text-blue-800', name: 'Noite' },
-            
-            // Turnos da Nova Lista
-            'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Horário Administrativo' },
-            'VS': { hours: 8, color: 'bg-cyan-200', text: 'text-cyan-800', name: 'Viagem a Serviço' },
-            'IS': { hours: 8, color: 'bg-teal-200', text: 'text-teal-800', name: 'Inspeção Saúde' },
-
-            // Folgas e Compensações
-            'X': { hours: 0, color: 'bg-gray-200', text: 'text-gray-800', name: 'Folga/Repouso' },
-            'CHE': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Compensação Hora Extra' },
-            'FC': { hours: 0, color: 'bg-purple-300', text: 'text-purple-900', name: 'Folga Compensatória' },
-            'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Folga Feriado' },
-            'FA': { hours: 0, color: 'bg-gray-300', text: 'text-gray-900', name: 'Folga de Ajuste de Escala' },
-
-            // Férias, Licenças e Dispensas
+            'HA': { hours: 8, color: 'bg-green-200', text: 'text-green-800', name: 'Adm' },
+            'VS': { hours: 8, color: 'bg-cyan-200', text: 'text-cyan-800', name: 'Viagem' },
+            'IS': { hours: 8, color: 'bg-teal-200', text: 'text-teal-800', name: 'Insp. Saúde' },
+            'X': { hours: 0, color: 'bg-gray-100', text: 'text-gray-400', name: 'Folga' },
+            'CHE': { hours: 0, color: 'bg-purple-200', text: 'text-purple-800', name: 'Comp. Hora' },
+            'FC': { hours: 0, color: 'bg-purple-300', text: 'text-purple-900', name: 'Folga Comp.' },
+            'FF': { hours: 0, color: 'bg-orange-200', text: 'text-orange-800', name: 'Feriado' },
+            'FA': { hours: 0, color: 'bg-gray-300', text: 'text-gray-900', name: 'Ajuste' },
             'FE': { hours: 0, color: 'bg-pink-200', text: 'text-pink-800', name: 'Férias' },
             'R': { hours: 0, color: 'bg-pink-300', text: 'text-pink-900', name: 'Recesso' },
-            'AM': { hours: 0, color: 'bg-red-200', text: 'text-red-800', name: 'Atestado Médico' },
-            'LM': { hours: 0, color: 'bg-rose-200', text: 'text-rose-800', name: 'Licença Maternidade' },
-            'LP': { hours: 0, color: 'bg-fuchsia-200', text: 'text-fuchsia-800', name: 'Licença Paternidade' },
-            
-            // Outros
+            'AM': { hours: 0, color: 'bg-red-200', text: 'text-red-800', name: 'Atestado' },
+            'LM': { hours: 0, color: 'bg-rose-200', text: 'text-rose-800', name: 'Lic. Mat.' },
+            'LP': { hours: 0, color: 'bg-fuchsia-200', text: 'text-fuchsia-800', name: 'Lic. Pat.' },
             'SE': { hours: 0, color: 'bg-slate-300', text: 'text-slate-800', name: 'Sobreaviso' },
-
-            // Vazio
-            '---': { hours: 0, color: 'bg-gray-100', text: 'text-gray-500', name: 'Vazio' }
+            '---': { hours: 0, color: 'bg-white', text: 'text-gray-300', name: 'Vazio' }
         };
 
         const ADMIN_NAMES = ["Wilkson", "Adriano"];
         const MANAGER_NAME = "WILKSON";
 
-        // Variável initialScheduleData adicionada aqui
-        let scheduleData=[], initialScheduleData=[], dateHeaders=[], monthName='', year='', originalCsvLines=[], isSwapMode=false, firstSelection=null, currentEditCell=null, currentScheduleId=null, pendingSwaps=[];
-        
-        const fileInput=document.getElementById('csv-upload'),initialMessage=document.getElementById('initial-message'),summarySection=document.getElementById('summary-section'),mainContent=document.getElementById('main-content'),statsSection=document.getElementById('stats-section'),scheduleTable=document.getElementById('schedule-table'),operatorStatsContainer=document.getElementById('operator-stats'),exportButton=document.getElementById('export-csv'),swapShiftsBtn=document.getElementById('swap-shifts-btn'),editModal=document.getElementById('edit-modal'),modalOperator=document.getElementById('modal-operator'),modalDate=document.getElementById('modal-date'),modalShiftSelect=document.getElementById('modal-shift-select'),modalSave=document.getElementById('modal-save'),modalCancel=document.getElementById('modal-cancel'),savedSchedulesList=document.getElementById('saved-schedules-list'),loadingSchedules=document.getElementById('loading-schedules'),appContent=document.getElementById('app-content'),loginBtn=document.getElementById('login-btn'),logoutBtn=document.getElementById('logout-btn'),userInfo=document.getElementById('user-info'),deleteScheduleBtn=document.getElementById('delete-schedule-btn'),deleteConfirmModal=document.getElementById('delete-confirm-modal'),deleteScheduleName=document.getElementById('delete-schedule-name'),deleteCancelBtn=document.getElementById('delete-cancel-btn'),deleteConfirmBtn=document.getElementById('delete-confirm-btn'),notificationsSection=document.getElementById('notifications-section'), adminControls = document.getElementById('admin-controls'), actionButtons = document.getElementById('action-buttons'), adminPanel = document.getElementById('admin-panel'), pendingUsersList = document.getElementById('pending-users-list'), pendingApprovalMessage = document.getElementById('pending-approval-message');
+        // --- Hooks Personalizados ---
 
-        let auth,db,userId,projectId,currentUserDisplayName, isUserAdmin = false;
+        const useAuthUser = () => {
+            const [user, setUser] = React.useState(null);
+            const [userData, setUserData] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
 
-        async function initializeFirebase(){try{const firebaseConfig={apiKey:"AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",authDomain:"dashboard-escala.firebaseapp.com",projectId:"dashboard-escala",storageBucket:"dashboard-escala.appspot.com",messagingSenderId:"451393122794",appId:"1:451393122794:web:24f125f11ef3260b770293"};projectId=firebaseConfig.projectId;const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);handleAuthState()}catch(error){console.error("Firebase initialization failed:",error);initialMessage.innerHTML=`<i class="fas fa-exclamation-triangle fa-4x text-red-400 mb-4"></i><h2 class="text-2xl font-semibold text-gray-600">Erro de Configuração</h2><p class="text-gray-500 mt-2">Não foi possível conectar ao Firebase.</p>`}}
-        
-        function handleAuthState(){onAuthStateChanged(auth,async(user)=>{if(user){userId=user.uid;currentUserDisplayName=user.displayName;userInfo.textContent=`Olá, ${user.displayName||'Usuário'}`;loginBtn.classList.add('hidden');userInfo.classList.remove('hidden');logoutBtn.classList.remove('hidden');await checkUserStatus(user)}else{userId=null;currentUserDisplayName=null;isUserAdmin=false;loginBtn.classList.remove('hidden');userInfo.classList.add('hidden');logoutBtn.classList.add('hidden');appContent.classList.add('hidden');adminPanel.classList.add('hidden');pendingApprovalMessage.classList.add('hidden');initialMessage.classList.remove('hidden')}})}
-        
-        async function checkUserStatus(user) {
-            const userRef = doc(db, `artifacts/${projectId}/users`, user.uid);
-            const userDoc = await getDoc(userRef);
-
-            if (!userDoc.exists()) {
-                const isAdmin = ADMIN_NAMES.some(admin => user.displayName.toLowerCase().includes(admin.toLowerCase()));
-                await setDoc(userRef, {
-                    uid: user.uid,
-                    displayName: user.displayName,
-                    email: user.email,
-                    status: isAdmin ? 'approved' : 'pending',
-                    isAdmin: isAdmin
-                });
-                if (isAdmin) {
-                    isUserAdmin = true;
-                    showFullApp();
-                } else {
-                    showPendingApprovalMessage();
-                }
-            } else {
-                const userData = userDoc.data();
-                isUserAdmin = userData.isAdmin || false;
-                if (userData.status === 'approved') {
-                    showFullApp();
-                } else {
-                    showPendingApprovalMessage();
-                }
-            }
-        }
-
-        async function showFullApp() {
-            appContent.classList.remove('hidden');
-            initialMessage.classList.add('hidden');
-            pendingApprovalMessage.classList.add('hidden');
-            updateUIVisibility();
-            await loadSavedSchedules();
-            if (currentScheduleId) await loadPendingSwaps();
-            if (isUserAdmin) await loadPendingUsers();
-        }
-
-        function showPendingApprovalMessage() {
-            appContent.classList.add('hidden');
-            initialMessage.classList.add('hidden');
-            pendingApprovalMessage.classList.remove('hidden');
-        }
-
-        function updateUIVisibility() {
-            if (isUserAdmin) {
-                adminControls.classList.remove('hidden');
-                deleteScheduleBtn.classList.remove('hidden');
-                exportButton.classList.remove('hidden');
-            } else {
-                adminControls.classList.add('hidden');
-                deleteScheduleBtn.classList.add('hidden');
-                exportButton.classList.add('hidden');
-            }
-        }
-
-        async function handleLogin(){const provider=new GoogleAuthProvider();try{await signInWithPopup(auth,provider)}catch(error){console.error("Google sign-in failed:",error)}}
-        async function handleLogout(){try{await signOut(auth)}catch(error){console.error("Sign out failed:",error)}}
-        
-        async function saveScheduleToFirestore(){
-            if(!userId||!currentScheduleId)return;
-            // Salva também o initialScheduleData
-            const schedulePayload={
-                scheduleData,
-                initialScheduleData,
-                dateHeaders,
-                monthName,
-                year,
-                originalCsvLines,
-                lastUpdated:(new Date).toISOString()
-            };
-            try{
-                const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,currentScheduleId);
-                await setDoc(scheduleRef,schedulePayload);
-                showToast("Escala salva com sucesso!");
-                await loadSavedSchedules()
-            }catch(error){
-                console.error("Error saving schedule to Firestore:",error);
-                showToast("Erro ao salvar a escala.",true)
-            }
-        }
-        
-        async function loadSavedSchedules(){
-            if(!userId)return;
-            try {
-                const schedulesCol=collection(db,`artifacts/${projectId}/schedules`);
-                const scheduleSnapshot=await getDocs(schedulesCol);
-                savedSchedulesList.innerHTML='';
-                if(scheduleSnapshot.empty){
-                    savedSchedulesList.innerHTML='<p class="text-gray-500">Nenhuma escala salva encontrada.</p>'
-                } else {
-                    const schedules=scheduleSnapshot.docs.map(doc=>({id:doc.id,...doc.data()}));
-                    schedules.sort((a, b) => a.id.localeCompare(b.id)); // Sort by new ID
-                    schedules.forEach(schedule=>{
-                        const button=document.createElement('button');
-                        button.className="bg-white text-gray-700 font-semibold py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-100";
-                        button.textContent=schedule.id;
-                        button.onclick=()=>loadScheduleFromFirestore(schedule.id);
-                        savedSchedulesList.appendChild(button)
-                    })
-                }
-            } catch(error) {
-                console.error("Error loading saved schedules:",error);
-                savedSchedulesList.innerHTML='<p class="text-red-500">Erro ao carregar escalas.</p>'
-            }
-        }
-
-        async function loadScheduleFromFirestore(scheduleId){
-            try {
-                const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,scheduleId);
-                const docSnap=await getDoc(scheduleRef);
-                if(docSnap.exists()){
-                    const data=docSnap.data();
-                    ({scheduleData,dateHeaders,monthName,year,originalCsvLines}=data);
-                    
-                    // Recupera os dados originais ou cria baseados nos atuais se for legado
-                    if (data.initialScheduleData) {
-                        initialScheduleData = data.initialScheduleData;
-                    } else {
-                        initialScheduleData = JSON.parse(JSON.stringify(scheduleData));
-                    }
-
-                    currentScheduleId=scheduleId;
-                    displayData();
-                    await loadPendingSwaps()
-                }
-            } catch(error){
-                console.error("Error loading schedule from Firestore:",error)
-            }
-        }
-        
-        async function handleFileUpload(event){
-            const file=event.target.files[0];
-            if(!file)return;
-            const reader=new FileReader;
-            reader.onload=async e=>{
-                originalCsvLines=e.target.result.split(/\r\n?|\n/);
-                parseCSV(originalCsvLines);
-                if(scheduleData.length>0){
-                    // Cria uma cópia profunda dos dados como estado inicial
-                    initialScheduleData = JSON.parse(JSON.stringify(scheduleData));
-
-                    const MONTH_MAP_NUM = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
-                    const monthNum = MONTH_MAP_NUM[monthName.toUpperCase()];
-                    currentScheduleId=`${monthNum}-${year}-${monthName.toUpperCase()}`; // New format
-                    displayData();
-                    await saveScheduleToFirestore();
-                }
-            };
-            reader.readAsText(file,'ISO-8859-1')
-        }
-
-        function parseCSV(lines){scheduleData=[];dateHeaders=[];year='';monthName='';let DATE_ROW=-1,OPERATOR_DATA_START_ROW=-1;for(let i=10;i<lines.length;i++){const parts=lines[i].split(';');if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){DATE_ROW=i;OPERATOR_DATA_START_ROW=i+1;break}}if(DATE_ROW===-1){console.error("Cabeçalho de data não localizado.");return}try{const monthLine=lines[0].split(';')[0].trim();if(monthLine)monthName=monthLine.charAt(0).toUpperCase()+monthLine.slice(1).toLowerCase();const yearLine=lines[3].split(';')[0].trim();if(/^20\d{2}$/.test(yearLine))year=yearLine}catch(e){console.error("Erro ao ler metadados.")}dateHeaders=lines[DATE_ROW].split(';').slice(1).map(d=>d.trim().replace(/"/g,'')).filter(d=>d&&!isNaN(d));if(dateHeaders.length===0){console.error("Datas válidas não encontradas.");return}for(let i=OPERATOR_DATA_START_ROW;i<lines.length;i++){const line=lines[i].trim();if(!line)continue;const parts=line.split(';');const operatorName=parts[0].trim().replace(/"/g,'');if(operatorName&&operatorName.length>2&&isNaN(operatorName)){const shifts=parts.slice(1,dateHeaders.length+1).map(s=>{const cleanedShift=s.trim().replace(/"/g,'');return SHIFT_CONFIG.hasOwnProperty(cleanedShift)?cleanedShift:'---'});if(shifts.length===dateHeaders.length)scheduleData.push({name:operatorName,shifts})}}}
-        function displayData(){summarySection.classList.remove('hidden');mainContent.classList.remove('hidden');statsSection.classList.remove('hidden');document.getElementById('table-title').textContent=`Escala Mensal - ${monthName} ${year}`;renderTable();updateAllStats();populateModalSelect()}
-        function getDayStatusArray(){const dayStatus=[];let currentStatus='previous';for(let i=0;i<dateHeaders.length;i++){if(i>0&&parseInt(dateHeaders[i])<parseInt(dateHeaders[i-1])){currentStatus=currentStatus==='previous'?'current':'next'}if(dateHeaders[i]==='1'&&currentStatus==='previous'){currentStatus='current'}dayStatus.push(currentStatus)}return dayStatus}
-        
-        function getFullDateForCell(dayIndex) {
-            const MONTH_MAP={'JANEIRO':0,'FEVEREIRO':1,'MARÇO':2,'ABRIL':3,'MAIO':4,'JUNHO':5,'JULHO':6,'AGOSTO':7,'SETEMBRO':8,'OUTUBRO':9,'NOVEMBRO':10,'DEZEMBRO':11};
-            const monthIndex=MONTH_MAP[monthName.toUpperCase()];
-            const dayStatus=getDayStatusArray();
-            let effectiveMonth=monthIndex;
-            if(dayStatus[dayIndex]==='previous')effectiveMonth-=1;
-            if(dayStatus[dayIndex]==='next')effectiveMonth+=1;
-            return new Date(year,effectiveMonth,parseInt(dateHeaders[dayIndex]));
-        }
-
-        // renderTable Atualizado com a lógica de diff visual
-        function renderTable() {
-            const dayStatus = getDayStatusArray();
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let html = '<thead class="sticky top-0 z-20"><tr class="bg-gray-200"><th class="p-2 font-semibold text-left sticky left-0 bg-gray-200 z-30" rowspan="2">Operador</th>';
-            dateHeaders.forEach((day, index) => {
-                const cellDate = getFullDateForCell(index);
-                let weekDay = cellDate.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3);
-                const headerColor = dayStatus[index] === 'current' ? 'text-gray-600' : 'text-gray-400';
-                html += `<th class="p-1 font-medium text-xs ${headerColor}">${weekDay}</th>`
-            });
-            html += '</tr><tr class="bg-gray-100">';
-            dateHeaders.forEach((day, index) => {
-                const isCurrentMonthDay = dayStatus[index] === 'current';
-                const cellDate = getFullDateForCell(index);
-                const isToday = isCurrentMonthDay && cellDate.getTime() === today.getTime();
-                const headerColor = isCurrentMonthDay ? '' : 'text-gray-400';
-                const todayHeaderClass = isToday ? 'bg-blue-500 text-white rounded-full' : '';
-                html += `<th class="p-2 font-semibold text-sm ${headerColor}"><span class="inline-block w-6 h-6 leading-6 ${todayHeaderClass}">${day}</span></th>`
-            });
-            html += '</tr></thead><tbody>';
-
-            scheduleData.forEach((operator, opIndex) => {
-                html += `<tr class="border-b last:border-b-0 hover:bg-gray-50"><td class="p-2 font-medium text-gray-800 text-left sticky left-0 bg-white hover:bg-gray-50 z-10 whitespace-nowrap border-r">${operator.name}</td>`;
-                
-                operator.shifts.forEach((shift, dayIndex) => {
-                    const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
-                    const isCurrentMonthDay = dayStatus[dayIndex] === 'current';
-                    const cellDate = getFullDateForCell(dayIndex);
-                    const isToday = isCurrentMonthDay && cellDate.getTime() === today.getTime();
-                    
-                    let bgColor = isCurrentMonthDay ? config.color : 'bg-gray-200';
-                    let textColor = isCurrentMonthDay ? config.text : 'text-gray-500';
-                    let extraCellClasses = [];
-                    let tooltip = '';
-
-                    // LÓGICA DE DETECÇÃO DE MUDANÇA
-                    if (initialScheduleData[opIndex] && initialScheduleData[opIndex].shifts[dayIndex]) {
-                        const originalShift = initialScheduleData[opIndex].shifts[dayIndex];
-                        if (shift !== originalShift) {
-                            extraCellClasses.push('ring-4 ring-orange-400 ring-inset z-10'); // Borda laranja de destaque
-                            tooltip = ` title="Originalmente: ${originalShift}"`;
-                        }
-                    }
-
-                    if (isToday) {
-                         // Se não tiver mudança (tooltip vazio), mostra borda azul de hoje. Se tiver mudança, a laranja prevalece.
-                        if(!tooltip) extraCellClasses.push('ring-2 ring-blue-500 z-10');
-                    }
-
-                    const pendingSwap = pendingSwaps.find(s => (parseInt(s.initiator.opIndex) === opIndex && parseInt(s.initiator.dayIndex) === dayIndex) || (parseInt(s.recipient.opIndex) === opIndex && parseInt(s.recipient.dayIndex) === dayIndex));
-                    
-                    if (pendingSwap) {
-                        if (parseInt(pendingSwap.initiator.opIndex) === opIndex && parseInt(pendingSwap.initiator.dayIndex) === dayIndex) {
-                            extraCellClasses.push('ring-2 ring-blue-500 animate-pulse')
+            React.useEffect(() => {
+                const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+                    if (currentUser) {
+                        setUser(currentUser);
+                        const userRef = doc(db, `artifacts/${firebaseConfig.projectId}/users`, currentUser.uid);
+                        const userSnap = await getDoc(userRef);
+                        
+                        let data;
+                        if (!userSnap.exists()) {
+                            const isAdmin = ADMIN_NAMES.some(name => currentUser.displayName?.toLowerCase().includes(name.toLowerCase()));
+                            data = {
+                                uid: currentUser.uid,
+                                displayName: currentUser.displayName,
+                                email: currentUser.email,
+                                status: isAdmin ? 'approved' : 'pending',
+                                isAdmin: isAdmin
+                            };
+                            await setDoc(userRef, data);
                         } else {
-                            extraCellClasses.push('ring-2 ring-green-500 animate-pulse')
+                            data = userSnap.data();
+                            if (ADMIN_NAMES.some(name => currentUser.displayName?.toLowerCase().includes(name.toLowerCase())) && !data.isAdmin) {
+                                data.isAdmin = true;
+                                await updateDoc(userRef, { isAdmin: true });
+                            }
                         }
+                        setUserData(data);
+                    } else {
+                        setUser(null);
+                        setUserData(null);
                     }
-
-                    const cellClasses = extraCellClasses.join(' ');
-                    
-                    html += `<td class="p-0 border-r last:border-r-0"><div class="relative w-full h-full p-2 font-mono font-bold cursor-pointer transition-transform transform hover:scale-110 ${bgColor} ${textColor} ${cellClasses}" ${tooltip} data-op-index="${opIndex}" data-day-index="${dayIndex}" onclick="handleCellClick(this)">${shift}</div></td>`
+                    setLoading(false);
                 });
-                html += `</tr>`
-            });
-            html += '</tbody>';
-            scheduleTable.innerHTML = html;
+                return () => unsubscribe();
+            }, []);
+
+            const login = async () => {
+                try {
+                    const provider = new GoogleAuthProvider();
+                    await signInWithPopup(auth, provider);
+                } catch (error) {
+                    console.error("Login failed", error);
+                    alert("Erro ao fazer login: " + error.message);
+                }
+            };
+
+            const logout = async () => await signOut(auth);
+
+            return { user, userData, loading, login, logout };
+        };
+
+        // --- Componentes UI Reutilizáveis ---
+
+        const Loader = () => (
+            <div className="flex justify-center items-center h-full p-10">
+                <i className="fas fa-circle-notch fa-spin text-4xl text-indigo-600"></i>
+            </div>
+        );
+
+        const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => {
+            const variants = {
+                primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
+                secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50',
+                danger: 'bg-red-500 text-white hover:bg-red-600',
+                success: 'bg-green-600 text-white hover:bg-green-700',
+                ghost: 'bg-transparent text-gray-500 hover:bg-gray-100'
+            };
+            return (
+                <button 
+                    onClick={onClick} 
+                    className={`h-12 px-4 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center gap-2 active:scale-95 ${variants[variant]} ${className}`}
+                    {...props}
+                >
+                    {children}
+                </button>
+            );
+        };
+
+        const Select = ({ value, onChange, options, label }) => (
+            <div className="w-full relative">
+                {label && <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">{label}</label>}
+                <div className="relative">
+                    <select 
+                        value={value} 
+                        onChange={onChange}
+                        className="w-full h-12 pl-4 pr-10 bg-white border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
+                    >
+                        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-gray-500">
+                        <i className="fas fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- Componentes Principais ---
+
+        const PendingApprovalScreen = ({ onLogout }) => (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-orange-50 p-6 text-center">
+                <i className="fas fa-clock text-5xl text-orange-400 mb-6"></i>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">Aguardando Aprovação</h2>
+                <p className="text-gray-600 mb-8">Seu cadastro foi recebido. Aguarde a liberação de um administrador (Wilkson/Adriano).</p>
+                <Button onClick={onLogout} variant="secondary">Sair</Button>
+            </div>
+        );
+
+        // Sub-componente: Célula da Tabela
+        const ScheduleCell = ({ shift, onClick, isToday, isSelected, isChanged, isPendingSwap, isCurrentMonth }) => {
+            const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
+            
+            let classes = `h-10 w-10 md:h-12 md:w-12 flex items-center justify-center font-bold text-sm rounded-md transition-all `;
+            
+            if (isCurrentMonth) {
+                classes += config.color + ' ' + config.text;
+                classes += isToday ? ' ring-2 ring-blue-500 ring-offset-1 ' : '';
+                classes += isSelected ? ' ring-4 ring-indigo-500 z-20 scale-110 shadow-lg ' : '';
+                classes += isChanged ? ' ring-2 ring-orange-400 z-10 ' : '';
+                classes += isPendingSwap ? ' animate-pulse ring-2 ring-green-500 z-10 ' : '';
+            } else {
+                classes += ' grayscale-cell ';
+                classes += isSelected ? ' ring-4 ring-gray-400 z-20 ' : '';
+            }
+
+            return (
+                <div className="p-1 min-w-[3rem] md:min-w-[3.5rem]" onClick={onClick}>
+                    <div className={classes}>
+                        {shift}
+                    </div>
+                </div>
+            );
+        };
+
+        // Helper para status do dia
+        function getDayStatusArray(dateHeaders) {
+            const dayStatus = [];
+            let currentStatus = 'previous';
+            for (let i = 0; i < dateHeaders.length; i++) {
+                if (i > 0 && parseInt(dateHeaders[i]) < parseInt(dateHeaders[i-1])) {
+                    currentStatus = currentStatus === 'previous' ? 'current' : 'next';
+                }
+                if (dateHeaders[i] === '1' && currentStatus === 'previous') {
+                    currentStatus = 'current';
+                }
+                dayStatus.push(currentStatus);
+            }
+            return dayStatus;
         }
-        
-        function updateAllStats(){let totalOperators=scheduleData.length,totalShifts=0,totalHours=0;const dayStatus=getDayStatusArray();const operatorStats=scheduleData.map(operator=>{let workedHours=0,workDays=0,offDays=0,vacationDays=0;operator.shifts.forEach((shift,index)=>{if(dayStatus[index]==='current'){const config=SHIFT_CONFIG[shift];if(config){workedHours+=config.hours;if(config.hours>0){workDays++;totalShifts++}else if(['X','FC','FF'].includes(shift)){offDays++}else if(shift==='FE'){vacationDays++}}}});if(operator.name.toUpperCase() !== MANAGER_NAME){totalHours+=workedHours}return{name:operator.name,workedHours,workDays,offDays,vacationDays}});document.getElementById('total-operators').textContent=totalOperators;document.getElementById('total-shifts').textContent=totalShifts;document.getElementById('total-hours').textContent=`${totalHours}h`;document.getElementById('scale-month').textContent=`${monthName} ${year}`;renderOperatorStats(operatorStats)}
-        function renderOperatorStats(stats){let html='';stats.forEach(stat=>{html+=`<div class="bg-white p-4 rounded-xl shadow-lg"><h3 class="font-bold text-gray-800">${stat.name}</h3><p class="text-3xl font-bold text-indigo-600 my-2">${stat.workedHours}h</p><div class="text-xs text-gray-500 flex justify-between"><span>Trabalho: ${stat.workDays}</span><span>Folgas: ${stat.offDays}</span><span>Férias: ${stat.vacationDays}</span></div></div>`});operatorStatsContainer.innerHTML=html}
-        function populateModalSelect(){modalShiftSelect.innerHTML=Object.entries(SHIFT_CONFIG).map(([key,{name}])=>`<option value="${key}">${key} - ${name}</option>`).join('')}
-        
-        window.handleCellClick=function(cell){if(isSwapMode){handleSwapSelection(cell)}else{openEditModal(cell)}}
-        
-        function openEditModal(cell){const{opIndex,dayIndex}=cell.dataset;const operator=scheduleData[opIndex];const operatorName=operator.name;if(isUserAdmin||(currentUserDisplayName&&currentUserDisplayName.toLowerCase().includes(operatorName.toLowerCase()))){currentEditCell=cell;modalOperator.textContent=operator.name;modalDate.textContent=`${dateHeaders[dayIndex]} de ${monthName}`;modalShiftSelect.value=operator.shifts[dayIndex];editModal.classList.remove('hidden')}else{showToast("Você só pode editar os seus próprios turnos.",true)}}
-        async function saveShiftChange(){if(!currentEditCell)return;const{opIndex,dayIndex}=currentEditCell.dataset;const newShift=modalShiftSelect.value;scheduleData[opIndex].shifts[dayIndex]=newShift;editModal.classList.add('hidden');updateAllStats();renderTable();await saveScheduleToFirestore()}
-        function toggleSwapMode(){isSwapMode=!isSwapMode;const swapBtnText=document.getElementById('swap-btn-text');if(isSwapMode){swapShiftsBtn.classList.replace('bg-blue-600','bg-red-600');swapShiftsBtn.classList.replace('hover:bg-blue-700','hover:bg-red-700');swapBtnText.textContent='Cancelar Troca';scheduleTable.style.cursor='cell'}else{swapShiftsBtn.classList.replace('bg-red-600','bg-blue-600');swapShiftsBtn.classList.replace('hover:bg-red-700','hover:bg-blue-700');swapBtnText.textContent='Trocar Turnos';scheduleTable.style.cursor='default';if(firstSelection){firstSelection.element.classList.remove('selected-for-swap');firstSelection=null}}}
-        
-        async function handleSwapSelection(cell){
-            const { opIndex, dayIndex } = cell.dataset;
+
+        // Sub-componente: Tabela de Escala
+        const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) => {
+            const { scheduleData, dateHeaders, monthName } = schedule;
             const today = new Date();
             today.setHours(0,0,0,0);
-            const cellDate = getFullDateForCell(dayIndex);
             
-            if(cellDate < today) {
-                showToast("Não é permitido trocar turnos em datas passadas.", true);
-                if (firstSelection) {
-                    firstSelection.element.classList.remove('selected-for-swap');
-                    firstSelection = null;
+            const dayStatuses = getDayStatusArray(dateHeaders);
+            const scrollContainerRef = React.useRef(null);
+
+            // Hook para Auto-Scroll para o dia atual
+            React.useEffect(() => {
+                const timer = setTimeout(() => {
+                    const todayElement = document.getElementById('scroll-target-today');
+                    if (scrollContainerRef.current && todayElement) {
+                        const stickyOffset = 120; 
+                        const scrollPos = todayElement.offsetLeft - stickyOffset;
+                        
+                        scrollContainerRef.current.scrollTo({
+                            left: scrollPos > 0 ? scrollPos : 0,
+                            behavior: 'smooth'
+                        });
+                    }
+                }, 500);
+                return () => clearTimeout(timer);
+            }, [schedule.monthName]);
+
+            const isTodayFunc = (dayStr, status) => {
+                if (status !== 'current') return false;
+                const d = parseInt(dayStr);
+                const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+                return d === today.getDate() && new Date().getMonth() === monthNames.indexOf(monthName.toUpperCase());
+            };
+
+            return (
+                <div 
+                    id="table-container"
+                    ref={scrollContainerRef} 
+                    className="overflow-auto custom-scrollbar bg-white rounded-xl shadow-sm border border-gray-200 -mx-4 md:mx-0 relative"
+                >
+                    <table className="w-full border-collapse">
+                        <thead>
+                            <tr className="bg-gray-100 border-b border-gray-200">
+                                <th className="p-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky-col min-w-[120px]">Operador</th>
+                                {dateHeaders.map((day, idx) => {
+                                    const status = dayStatuses[idx];
+                                    const isCurrent = status === 'current';
+                                    const isToday = isTodayFunc(day, status);
+                                    
+                                    return (
+                                        <th 
+                                            key={idx} 
+                                            id={isToday ? "scroll-target-today" : undefined}
+                                            className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}
+                                        >
+                                            <div className={`text-xs font-bold ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
+                                                {day}
+                                            </div>
+                                        </th>
+                                    );
+                                })}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {scheduleData.map((op, opIndex) => (
+                                <tr key={opIndex} className="hover:bg-gray-50">
+                                    <td className="p-3 text-sm font-semibold text-gray-700 sticky-col whitespace-nowrap bg-white truncate max-w-[120px]">
+                                        {op.name}
+                                    </td>
+                                    {op.shifts.map((shift, dayIndex) => {
+                                        const pending = pendingSwaps.find(s => 
+                                            (parseInt(s.initiator.opIndex) === opIndex && parseInt(s.initiator.dayIndex) === dayIndex) || 
+                                            (parseInt(s.recipient.opIndex) === opIndex && parseInt(s.recipient.dayIndex) === dayIndex)
+                                        );
+                                        
+                                        const isSelected = selectedCell && selectedCell.opIndex == opIndex && selectedCell.dayIndex == dayIndex;
+                                        const status = dayStatuses[dayIndex];
+                                        const isCurrentMonth = status === 'current';
+
+                                        return (
+                                            <td key={dayIndex} className="p-0 text-center">
+                                                <ScheduleCell 
+                                                    shift={shift} 
+                                                    isToday={isTodayFunc(dateHeaders[dayIndex], status)}
+                                                    isSelected={isSelected}
+                                                    isPendingSwap={!!pending}
+                                                    isCurrentMonth={isCurrentMonth}
+                                                    onClick={() => onCellClick(opIndex, dayIndex, op.name, shift, isCurrentMonth)}
+                                                />
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        };
+
+        // --- App Principal ---
+
+        const App = () => {
+            const { user, userData, loading, login, logout } = useAuthUser();
+            const [activeTab, setActiveTab] = React.useState('home');
+            const [currentScheduleId, setCurrentScheduleId] = React.useState(null);
+            const [schedule, setSchedule] = React.useState(null);
+            const [schedulesList, setSchedulesList] = React.useState([]);
+            const [pendingSwaps, setPendingSwaps] = React.useState([]);
+            const [pendingUsers, setPendingUsers] = React.useState([]);
+            
+            // UI States
+            const [isEditModalOpen, setEditModalOpen] = React.useState(false);
+            const [selectedCell, setSelectedCell] = React.useState(null); 
+            const [swapMode, setSwapMode] = React.useState(false);
+            const [swapSelection, setSwapSelection] = React.useState(null); 
+            const [toast, setToast] = React.useState(null);
+
+            // --- Effects ---
+
+            React.useEffect(() => {
+                // Carregar lista assim que montar, não depende mais de 'user' ser aprovado (modo anônimo)
+                loadSchedulesList();
+            }, []);
+
+            React.useEffect(() => {
+                if (user && userData?.isAdmin) loadPendingUsers();
+            }, [user, userData]);
+
+            React.useEffect(() => {
+                if (currentScheduleId) {
+                    loadSchedule(currentScheduleId);
+                    loadSwapRequests(currentScheduleId);
+                } else {
+                    setSchedule(null);
                 }
-                return;
-            }
+            }, [currentScheduleId]);
 
-            if(!firstSelection){
-                firstSelection={opIndex:opIndex,dayIndex:dayIndex,element:cell};
-                cell.classList.add('selected-for-swap')
-            } else {
-                const secondSelection={opIndex:opIndex,dayIndex:dayIndex,element:cell};
-                if(firstSelection.opIndex===secondSelection.opIndex&&firstSelection.dayIndex===secondSelection.dayIndex)return;
-                const initiator={opIndex:parseInt(firstSelection.opIndex),dayIndex:parseInt(firstSelection.dayIndex),opName:scheduleData[firstSelection.opIndex].name,shift:scheduleData[firstSelection.opIndex].shifts[firstSelection.dayIndex]};
-                const recipient={opIndex:parseInt(secondSelection.opIndex),dayIndex:parseInt(secondSelection.dayIndex),opName:scheduleData[secondSelection.opIndex].name,shift:scheduleData[secondSelection.opIndex].shifts[secondSelection.dayIndex]};
-                if(initiator.opName===recipient.opName){showToast("Não é possível trocar turnos com você mesmo.",true);firstSelection.element.classList.remove('selected-for-swap');firstSelection=null;return}
-                const requestId=`${currentScheduleId}_${initiator.opIndex}-${initiator.dayIndex}_${recipient.opIndex}-${recipient.dayIndex}`;
-                const requestData={id:requestId,scheduleId:currentScheduleId,initiator,recipient,status:'pending',timestamp:(new Date).toISOString()};
-                await saveSwapRequest(requestData);
-                showToast(`Solicitação de troca enviada para ${recipient.opName}.`);
-                firstSelection.element.classList.remove('selected-for-swap');
-                firstSelection=null;
-                toggleSwapMode()
-            }
-        }
-
-        function showDeleteConfirmModal(){if(!currentScheduleId)return;deleteScheduleName.textContent=currentScheduleId;deleteConfirmModal.classList.remove('hidden')}
-        async function handleDeleteSchedule(){if(!userId||!currentScheduleId)return;try{const scheduleRef=doc(db,`artifacts/${projectId}/schedules`,currentScheduleId);await deleteDoc(scheduleRef);showToast("Escala deletada com sucesso!");deleteConfirmModal.classList.add('hidden');resetUI();await loadSavedSchedules()}catch(error){console.error("Error deleting schedule:",error);showToast("Erro ao deletar a escala.",true)}}
-        function resetUI(){summarySection.classList.add('hidden');mainContent.classList.add('hidden');statsSection.classList.add('hidden');scheduleData=[];dateHeaders=[];monthName='';year='';originalCsvLines=[];currentScheduleId=null}
-        function showToast(message,isError=false){const toast=document.getElementById('toast-notification'),toastMessage=document.getElementById('toast-message');toast.classList.toggle('bg-red-500',isError);toast.classList.toggle('bg-green-500',!isError);toastMessage.textContent=message;toast.classList.remove('opacity-0','translate-y-10');setTimeout(()=>{toast.classList.add('opacity-0','translate-y-10')},3000)}
-        function exportToCSV(){if(!originalCsvLines||originalCsvLines.length===0){alert("Não há dados para exportar.");return}let updatedCsvLines=[...originalCsvLines];let DATE_ROW=-1,OPERATOR_DATA_START_ROW=-1;for(let i=10;i<updatedCsvLines.length;i++){const parts=updatedCsvLines[i].split(';');if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){DATE_ROW=i;OPERATOR_DATA_START_ROW=i+1;break}}if(OPERATOR_DATA_START_ROW===-1){alert("Não foi possível encontrar a linha inicial dos operadores.");return}scheduleData.forEach((operator,opIndex)=>{const rowIndex=OPERATOR_DATA_START_ROW+opIndex;if(updatedCsvLines[rowIndex]){let parts=updatedCsvLines[rowIndex].split(';');parts[0]=operator.name;operator.shifts.forEach((shift,dayIndex)=>{parts[dayIndex+1]=shift});updatedCsvLines[rowIndex]=parts.join(';')}});const csvContent=updatedCsvLines.join('\n');const blob=new Blob([csvContent],{type:'text/csv;charset=utf-8;'});const link=document.createElement("a");const url=URL.createObjectURL(blob);link.setAttribute("href",url);link.setAttribute("download",`escala_atualizada_${monthName.toLowerCase()}_${year}.csv`);document.body.appendChild(link);link.click();document.body.removeChild(link)}
-        async function saveSwapRequest(requestData){try{const requestRef=doc(db,`artifacts/${projectId}/swapRequests`,requestData.id);await setDoc(requestRef,requestData);await loadPendingSwaps()}catch(error){console.error("Error saving swap request:",error)}}
-        
-        async function loadPendingSwaps(){
-            if(!userId||!currentScheduleId)return;
-            try {
-                const requestsCol=collection(db,`artifacts/${projectId}/swapRequests`);
-                const requestSnapshot=await getDocs(requestsCol);
-                const allSwaps = requestSnapshot.docs.map(doc=>doc.data()).filter(req=>req.scheduleId===currentScheduleId);
-
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                
-                let validSwaps = [];
-                for (const swap of allSwaps) {
-                    const swapDate = getFullDateForCell(swap.initiator.dayIndex);
-                    if (swapDate < today) {
-                        await deleteSwapRequest(swap.id, false); // Delete expired without reloading all swaps
+            // Auto-load current month
+            React.useEffect(() => {
+                if (schedulesList.length > 0 && !currentScheduleId) {
+                    const today = new Date();
+                    const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+                    const currentId = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}-${monthNames[today.getMonth()]}`;
+                    if (schedulesList.includes(currentId)) {
+                        setCurrentScheduleId(currentId);
                     } else {
-                        validSwaps.push(swap);
+                        setCurrentScheduleId(schedulesList[schedulesList.length - 1]);
                     }
                 }
-                pendingSwaps = validSwaps;
-                
-                renderNotifications();
-                renderTable();
-            } catch(error) {
-                console.error("Error loading swap requests:",error)
-            }
-        }
-        
-        function renderNotifications(){notificationsSection.innerHTML='';if(!currentUserDisplayName)return;const userRequests=pendingSwaps.filter(req=>currentUserDisplayName.toLowerCase().includes(req.recipient.opName.toLowerCase()));if(userRequests.length>0){let html='<h2 class="text-xl font-semibold text-gray-700 mb-2">Solicitações de Troca Pendentes</h2>';userRequests.forEach(req=>{html+=`<div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg mb-2 flex justify-between items-center"><div><p><strong>${req.initiator.opName}</strong> quer trocar o turno <strong>${req.initiator.shift}</strong> do dia <strong>${dateHeaders[req.initiator.dayIndex]}</strong> pelo seu turno <strong>${req.recipient.shift}</strong> do dia <strong>${dateHeaders[req.recipient.dayIndex]}</strong>.</p></div><div class="flex gap-2"><button class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded" onclick="window.handleAcceptSwap('${req.id}')">Aceitar</button><button class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded" onclick="window.handleDeclineSwap('${req.id}')">Recusar</button></div></div>`});notificationsSection.innerHTML=html}}
-        window.handleAcceptSwap=async function(requestId){const request=pendingSwaps.find(req=>req.id===requestId);if(!request)return;const{initiator,recipient}=request;const shift1=scheduleData[initiator.opIndex].shifts[initiator.dayIndex];const shift2=scheduleData[recipient.opIndex].shifts[recipient.dayIndex];scheduleData[initiator.opIndex].shifts[initiator.dayIndex]=shift2;scheduleData[recipient.opIndex].shifts[recipient.dayIndex]=shift1;await saveScheduleToFirestore();await deleteSwapRequest(requestId);showToast("Troca de turno aceita e efetivada!")}
-        window.handleDeclineSwap=async function(requestId){await deleteSwapRequest(requestId);showToast("Solicitação de troca recusada.")}
-        async function deleteSwapRequest(requestId, reload = true){try{const requestRef=doc(db,`artifacts/${projectId}/swapRequests`,requestId);await deleteDoc(requestRef);if(reload) await loadPendingSwaps()}catch(error){console.error("Error deleting swap request:",error)}}
-        
-        async function loadPendingUsers() {
-            if (!isUserAdmin) return;
-            try {
-                const usersCol = collection(db, `artifacts/${projectId}/users`);
-                const userSnapshot = await getDocs(usersCol);
-                const pendingUsers = userSnapshot.docs.map(doc => doc.data()).filter(user => user.status === 'pending');
-                
-                if (pendingUsers.length === 0) {
-                    adminPanel.classList.add('hidden');
-                } else {
-                    adminPanel.classList.remove('hidden');
-                    pendingUsersList.innerHTML = '';
-                    pendingUsers.forEach(user => {
-                        const userDiv = document.createElement('div');
-                        userDiv.className = 'flex justify-between items-center bg-white p-2 rounded-md';
-                        userDiv.innerHTML = `<div><p class="font-semibold">${user.displayName}</p><p class="text-sm text-gray-500">${user.email}</p></div><div class="flex gap-2"><button class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded" onclick="window.handleApproveUser('${user.uid}')">Aprovar</button><button class="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded" onclick="window.handleDenyUser('${user.uid}')">Negar</button></div>`;
-                        pendingUsersList.appendChild(userDiv);
-                    });
+            }, [schedulesList]);
+
+            // --- Logic Functions ---
+
+            const showToast = (msg, type = 'success') => {
+                setToast({ msg, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const loadSchedulesList = async () => {
+                try {
+                    const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/schedules`));
+                    const ids = snap.docs.map(d => d.id).sort();
+                    setSchedulesList(ids);
+                } catch (e) { 
+                    console.error(e);
+                    if(e.code === 'permission-denied') {
+                        // Silently fail or show message if needed. Data won't load if rules block it.
+                    }
                 }
-            } catch (error) {
-                console.error("Error loading pending users:", error);
-            }
-        }
-        
-        window.handleApproveUser = async function(uidToApprove) {
-            try {
-                const userRef = doc(db, `artifacts/${projectId}/users`, uidToApprove);
-                await updateDoc(userRef, { status: 'approved' });
-                showToast("Usuário aprovado com sucesso!");
-                await loadPendingUsers();
-            } catch (error) {
-                console.error("Error approving user:", error);
-                showToast("Erro ao aprovar usuário.", true);
-            }
-        }
+            };
 
-        window.handleDenyUser = async function(uidToDeny) {
-            try {
-                const userRef = doc(db, `artifacts/${projectId}/users`, uidToDeny);
-                await deleteDoc(userRef);
-                showToast("Usuário negado e removido.");
-                await loadPendingUsers();
-            } catch (error) {
-                console.error("Error denying user:", error);
-                showToast("Erro ao negar usuário.", true);
-            }
-        }
+            const loadSchedule = async (id) => {
+                try {
+                    const docSnap = await getDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, id));
+                    if (docSnap.exists()) {
+                        setSchedule(docSnap.data());
+                    }
+                } catch (e) { console.error(e); }
+            };
 
-        loginBtn.addEventListener('click',handleLogin);logoutBtn.addEventListener('click',handleLogout);fileInput.addEventListener('change',handleFileUpload);exportButton.addEventListener('click',exportToCSV);swapShiftsBtn.addEventListener('click',toggleSwapMode);modalCancel.addEventListener('click',()=>editModal.classList.add('hidden'));modalSave.addEventListener('click',saveShiftChange);deleteScheduleBtn.addEventListener('click',showDeleteConfirmModal);deleteCancelBtn.addEventListener('click',()=>deleteConfirmModal.classList.add('hidden'));deleteConfirmBtn.addEventListener('click',handleDeleteSchedule);
+            const loadSwapRequests = async (scheduleId) => {
+                try {
+                    const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/swapRequests`));
+                    const swaps = snap.docs.map(d => d.data()).filter(r => r.scheduleId === scheduleId);
+                    setPendingSwaps(swaps);
+                } catch (e) { console.error(e); }
+            };
+            
+            const loadPendingUsers = async () => {
+                try {
+                    const snap = await getDocs(collection(db, `artifacts/${firebaseConfig.projectId}/users`));
+                    const pending = snap.docs.map(d => d.data()).filter(u => u.status === 'pending');
+                    setPendingUsers(pending);
+                } catch (e) { console.error(e); }
+            };
 
-        initializeFirebase();
+            const handleDeleteSchedule = async () => {
+                if (!currentScheduleId) return;
+                if (!confirm(`Tem certeza que deseja DELETAR PERMANENTEMENTE a escala ${currentScheduleId}?`)) return;
+
+                try {
+                    await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId));
+                    showToast("Escala deletada com sucesso!");
+                    setSchedule(null);
+                    setCurrentScheduleId(null);
+                    await loadSchedulesList();
+                } catch(error) {
+                    showToast("Erro ao deletar escala", "error");
+                    console.error(error);
+                }
+            };
+
+            // Função para Download do CSV (Adicionada)
+            const handleDownloadCSV = () => {
+                if (!schedule) {
+                    showToast("Nenhuma escala carregada para baixar", "error");
+                    return;
+                }
+
+                try {
+                    // Reconstrói o formato CSV (Compatível com o Parser de Importação)
+                    let lines = [];
+                    
+                    // Cabeçalhos (Linhas 0 a 3 - Simula o cabeçalho original)
+                    lines.push(`${schedule.monthName};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`); // Mês
+                    lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+                    lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+                    lines.push(`${schedule.year};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`); // Ano
+                    
+                    // Linhas de preenchimento (4 a 10) para garantir que o parser encontre a linha de datas no lugar certo
+                    for(let i=4; i<11; i++) {
+                         lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"); 
+                    }
+
+                    // Linha de Datas (O parser espera: ;1;2;3...)
+                    lines.push(";" + schedule.dateHeaders.join(";"));
+
+                    // Linhas de Dados (Operadores e Turnos)
+                    schedule.scheduleData.forEach(op => {
+                        // Formato: "Nome";A;B;F...
+                        lines.push(`"${op.name}";${op.shifts.join(";")}`);
+                    });
+
+                    const csvContent = lines.join("\r\n");
+                    
+                    // Cria o Blob (UTF-8 com BOM para acentuação funcionar no Excel)
+                    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Cria o link invisível e clica
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `Escala_${schedule.monthName}_${schedule.year}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    showToast("Download iniciado!");
+                } catch (e) {
+                    console.error(e);
+                    showToast("Erro ao gerar CSV", "error");
+                }
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const lines = event.target.result.split(/\r\n?|\n/);
+                    let scheduleData=[], dateHeaders=[], monthName='', year='', DATE_ROW=-1, DATA_START=-1;
+                    
+                    for(let i=10;i<lines.length;i++){
+                        const parts=lines[i].split(';');
+                        if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim(),10))){
+                            DATE_ROW=i; DATA_START=i+1; break
+                        }
+                    }
+                    if(DATE_ROW === -1) { showToast('Formato CSV inválido', 'error'); return; }
+
+                    try {
+                        const mLine = lines[0].split(';')[0].trim();
+                        monthName = mLine.charAt(0).toUpperCase() + mLine.slice(1).toLowerCase();
+                        year = lines[3].split(';')[0].trim().match(/^20\d{2}$/) ? lines[3].split(';')[0].trim() : new Date().getFullYear();
+                    } catch(e) {}
+
+                    dateHeaders = lines[DATE_ROW].split(';').slice(1).map(d=>d.trim().replace(/"/g,'')).filter(d=>d&&!isNaN(d));
+
+                    for(let i=DATA_START; i<lines.length; i++){
+                        const line=lines[i].trim();
+                        if(!line) continue;
+                        const parts=line.split(';');
+                        const operatorName=parts[0].trim().replace(/"/g,'');
+                        if(operatorName.length>2 && isNaN(operatorName)){
+                            const shifts = parts.slice(1, dateHeaders.length+1).map(s => {
+                                const cs = s.trim().replace(/"/g,'');
+                                return SHIFT_CONFIG[cs] ? cs : '---';
+                            });
+                            if(shifts.length === dateHeaders.length) scheduleData.push({name:operatorName, shifts});
+                        }
+                    }
+
+                    const MONTH_MAP = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
+                    const newId = `${MONTH_MAP[monthName.toUpperCase()]}-${year}-${monthName.toUpperCase()}`;
+                    
+                    const newSchedule = { scheduleData, dateHeaders, monthName, year, originalCsvLines: lines };
+                    
+                    await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, newId), newSchedule);
+                    showToast('Escala carregada com sucesso!');
+                    await loadSchedulesList();
+                    setCurrentScheduleId(newId);
+                    setActiveTab('home'); 
+                };
+                reader.readAsText(file, 'ISO-8859-1');
+            };
+
+            const handleCellClick = (opIndex, dayIndex, opName, shift, isCurrentMonth) => {
+                // Verificação de Login
+                if (!user || userData?.status !== 'approved') {
+                    showToast("Faça login para realizar ações.", "error");
+                    return;
+                }
+
+                if (!isCurrentMonth) return;
+
+                if (swapMode) {
+                    if (!swapSelection) {
+                        setSwapSelection({ opIndex, dayIndex, opName, shift });
+                        showToast("Selecione o destino da troca");
+                    } else {
+                        if (swapSelection.opIndex === opIndex && swapSelection.dayIndex === dayIndex) {
+                            setSwapSelection(null);
+                            return;
+                        }
+                        const requestData = {
+                            id: `${currentScheduleId}_${Date.now()}`,
+                            scheduleId: currentScheduleId,
+                            initiator: swapSelection,
+                            recipient: { opIndex, dayIndex, opName, shift },
+                            status: 'pending',
+                            timestamp: new Date().toISOString()
+                        };
+                        setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, requestData.id), requestData)
+                            .then(() => {
+                                showToast("Solicitação de troca enviada!");
+                                setSwapMode(false);
+                                setSwapSelection(null);
+                                loadSwapRequests(currentScheduleId);
+                            });
+                    }
+                } else {
+                    if (userData.isAdmin || userData.displayName.toLowerCase().includes(opName.toLowerCase())) {
+                        setSelectedCell({ opIndex, dayIndex, opName, shift });
+                        setEditModalOpen(true);
+                    } else {
+                        showToast("Você só pode editar seus turnos", "error");
+                    }
+                }
+            };
+
+            const saveShiftChange = async (newShift) => {
+                if (!selectedCell || !schedule) return;
+                const newData = [...schedule.scheduleData];
+                newData[selectedCell.opIndex].shifts[selectedCell.dayIndex] = newShift;
+                
+                try {
+                    await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), {
+                        scheduleData: newData,
+                        lastUpdated: new Date().toISOString()
+                    });
+                    setSchedule({ ...schedule, scheduleData: newData });
+                    setEditModalOpen(false);
+                    showToast("Turno atualizado!");
+                } catch(e) {
+                    showToast("Erro ao salvar", "error");
+                }
+            };
+            
+            const handleAdminAction = async (uid, action) => {
+                try {
+                    const ref = doc(db, `artifacts/${firebaseConfig.projectId}/users`, uid);
+                    if (action === 'approve') await updateDoc(ref, { status: 'approved' });
+                    else await deleteDoc(ref);
+                    loadPendingUsers();
+                    showToast(action === 'approve' ? "Usuário aprovado" : "Usuário removido");
+                } catch(e) { showToast("Erro na ação", "error"); }
+            };
+
+            const toggleSwapMode = () => {
+                 if (!user || userData?.status !== 'approved') {
+                    showToast("Faça login para realizar trocas.", "error");
+                    return;
+                }
+                setSwapMode(!swapMode);
+                setSwapSelection(null);
+            };
+
+            // --- Renders ---
+
+            if (loading) return <div className="min-h-screen flex items-center justify-center"><i className="fas fa-spinner fa-spin text-4xl text-indigo-600"></i></div>;
+            
+            // Se estiver logado, mas pendente, bloqueia a tela
+            if (user && userData?.status !== 'approved') return <PendingApprovalScreen onLogout={logout} />;
+
+            // Se não estiver logado, ou se estiver logado e aprovado, renderiza o App Principal
+            return (
+                <div className="min-h-screen pb-24">
+                    {/* Header */}
+                    <header className="bg-white shadow-sm px-4 py-3 flex justify-between items-center sticky top-0 z-40">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-indigo-600 text-white p-2 rounded-lg">
+                                <i className="fas fa-layer-group"></i>
+                            </div>
+                            <div>
+                                <h1 className="font-bold text-gray-800 leading-tight">Escala DNIZ</h1>
+                                <p className="text-xs text-gray-500">
+                                    {schedule ? `${schedule.monthName} ${schedule.year}` : (user ? 'Nenhuma escala' : 'Modo Visitante')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            {!user ? (
+                                <button onClick={login} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow hover:bg-indigo-700 flex items-center gap-2">
+                                    <i className="fab fa-google"></i> Entrar
+                                </button>
+                            ) : (
+                                <button onClick={logout} className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-full text-red-500 hover:bg-red-100">
+                                    <i className="fas fa-sign-out-alt"></i>
+                                </button>
+                            )}
+                        </div>
+                    </header>
+
+                    {/* Main Content */}
+                    <main className="p-4 fade-in">
+                        {activeTab === 'home' && (
+                            <>
+                                <div className="mb-4">
+                                    <Select 
+                                        options={schedulesList.length > 0 ? schedulesList.map(id => ({ value: id, label: id })) : [{value: '', label: 'Nenhuma escala disponível'}]}
+                                        value={currentScheduleId || ''}
+                                        onChange={(e) => setCurrentScheduleId(e.target.value)}
+                                    />
+                                </div>
+
+                                {schedule ? (
+                                    <>
+                                        <div className="flex gap-2 mb-4">
+                                            <Button 
+                                                className={`flex-1 text-sm ${!user ? 'opacity-50' : ''}`}
+                                                variant={swapMode ? 'danger' : 'primary'}
+                                                onClick={toggleSwapMode}
+                                            >
+                                                <i className={`fas ${swapMode ? 'fa-times' : 'fa-exchange-alt'} mr-2`}></i>
+                                                {swapMode ? 'Cancelar Troca' : 'Trocar Turnos'}
+                                            </Button>
+                                        </div>
+                                        {swapMode && <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-xs text-center font-medium">Toque no turno de origem, depois no destino (apenas mês atual).</div>}
+
+                                        {pendingSwaps.length > 0 && user && (
+                                            <div className="mb-6 space-y-2">
+                                                <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
+                                                {pendingSwaps.map(req => {
+                                                    // Proteção para não quebrar se userData for null (não deve acontecer aqui pois verificamos user &&)
+                                                    const isMe = userData?.displayName?.toLowerCase().includes(req.recipient.opName.toLowerCase());
+                                                    if (!isMe && !userData?.isAdmin) return null;
+                                                    
+                                                    return (
+                                                        <div key={req.id} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500 text-sm">
+                                                            <p className="mb-2">
+                                                                <span className="font-bold">{req.initiator.opName}</span> ({req.initiator.shift}) <i className="fas fa-arrow-right text-gray-400 mx-1"></i> <span className="font-bold">{req.recipient.opName}</span> ({req.recipient.shift})
+                                                            </p>
+                                                            {isMe && (
+                                                                <div className="flex gap-2 mt-2">
+                                                                    <button onClick={async () => {
+                                                                        const newData = [...schedule.scheduleData];
+                                                                        const i = req.initiator, r = req.recipient;
+                                                                        newData[i.opIndex].shifts[i.dayIndex] = r.shift;
+                                                                        newData[r.opIndex].shifts[r.dayIndex] = i.shift;
+                                                                        await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), { scheduleData: newData });
+                                                                        await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
+                                                                        setSchedule({ ...schedule, scheduleData: newData });
+                                                                        loadSwapRequests(currentScheduleId);
+                                                                        showToast("Troca aceita!");
+                                                                    }} className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold">Aceitar</button>
+                                                                    
+                                                                    <button onClick={async () => {
+                                                                        await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
+                                                                        loadSwapRequests(currentScheduleId);
+                                                                        showToast("Recusada");
+                                                                    }} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Recusar</button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <ScheduleTable 
+                                            schedule={schedule} 
+                                            pendingSwaps={pendingSwaps}
+                                            onCellClick={handleCellClick}
+                                            selectedCell={swapSelection || selectedCell}
+                                        />
+                                    </>
+                                ) : (
+                                    <div className="text-center py-10 text-gray-500">
+                                        <i className="fas fa-folder-open text-4xl mb-2 text-gray-300"></i>
+                                        <p>Nenhuma escala carregada ou selecionada.</p>
+                                        {!user && <p className="text-xs text-indigo-600 mt-2" onClick={login}>Faça login se você é Admin.</p>}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {activeTab === 'stats' && schedule && (
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-bold text-gray-800">Estatísticas</h2>
+                                {schedule.scheduleData.map((op, idx) => {
+                                    const statuses = getDayStatusArray(schedule.dateHeaders);
+                                    const hours = op.shifts.reduce((acc, s, i) => {
+                                        if (statuses[i] !== 'current') return acc;
+                                        return acc + (SHIFT_CONFIG[s]?.hours || 0);
+                                    }, 0);
+
+                                    return (
+                                        <div key={idx} className="bg-white p-4 rounded-lg shadow-sm flex justify-between items-center">
+                                            <span className="font-medium text-gray-700">{op.name}</span>
+                                            <span className="text-lg font-bold text-indigo-600">{hours}h</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
+                        {activeTab === 'admin' && userData?.isAdmin && (
+                            <div className="space-y-6">
+                                <div className="bg-white p-5 rounded-lg shadow-sm border border-indigo-100">
+                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fas fa-cog text-indigo-600"></i> Gerenciamento de Escalas
+                                    </h3>
+                                    <div className="space-y-3">
+                                        <label className="block">
+                                            <span className="text-sm font-semibold text-gray-600 mb-1 block">Carregar Nova Escala (CSV)</span>
+                                            <div className="flex items-center justify-center w-full">
+                                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                        <i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                                        <p className="text-sm text-gray-500"><span className="font-semibold">Clique para enviar</span></p>
+                                                    </div>
+                                                    <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+                                                </label>
+                                            </div>
+                                        </label>
+
+                                        {currentScheduleId && (
+                                            <div className="pt-2">
+                                                <Button 
+                                                    variant="secondary" 
+                                                    className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50" 
+                                                    onClick={handleDownloadCSV}
+                                                >
+                                                    <i className="fas fa-file-csv mr-2"></i> Baixar Escala Atual (.csv)
+                                                </Button>
+                                            </div>
+                                        )}
+
+                                        {currentScheduleId && (
+                                            <div className="pt-2 border-t border-gray-100">
+                                                 <span className="text-sm font-semibold text-gray-600 mb-2 block">Ações de Perigo</span>
+                                                <Button variant="danger" className="w-full" onClick={handleDeleteSchedule}>
+                                                    <i className="fas fa-trash-alt"></i> Deletar Escala Atual
+                                                </Button>
+                                                <p className="text-xs text-red-400 mt-1 text-center">Ação irreversível para: {currentScheduleId}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-white p-5 rounded-lg shadow-sm border border-orange-100">
+                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                                        <i className="fas fa-user-shield text-orange-500"></i> Aprovação de Usuários
+                                    </h3>
+                                    {pendingUsers.length === 0 ? (
+                                        <p className="text-gray-500 text-sm text-center py-2">Nenhum usuário pendente.</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {pendingUsers.map(u => (
+                                                <div key={u.uid} className="bg-gray-50 p-3 rounded border border-gray-200">
+                                                    <div className="mb-2">
+                                                        <p className="font-bold text-sm">{u.displayName}</p>
+                                                        <p className="text-xs text-gray-500">{u.email}</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <Button className="flex-1 h-8 text-xs" variant="success" onClick={() => handleAdminAction(u.uid, 'approve')}>Aprovar</Button>
+                                                        <Button className="flex-1 h-8 text-xs" variant="danger" onClick={() => handleAdminAction(u.uid, 'deny')}>Negar</Button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Bottom Navigation */}
+                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center pb-[env(safe-area-inset-bottom)] z-40">
+                        <button onClick={() => setActiveTab('home')} className={`p-4 flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                            <i className="fas fa-calendar-day text-lg"></i>
+                            <span className="text-[10px] font-bold">Escala</span>
+                        </button>
+                        <button onClick={() => setActiveTab('stats')} className={`p-4 flex flex-col items-center gap-1 ${activeTab === 'stats' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                            <i className="fas fa-chart-pie text-lg"></i>
+                            <span className="text-[10px] font-bold">Resumo</span>
+                        </button>
+                        {userData?.isAdmin && (
+                            <button onClick={() => setActiveTab('admin')} className={`p-4 flex flex-col items-center gap-1 ${activeTab === 'admin' ? 'text-indigo-600' : 'text-gray-400'}`}>
+                                <i className="fas fa-users-cog text-lg"></i>
+                                {pendingUsers.length > 0 && <span className="absolute top-3 ml-4 w-2 h-2 bg-red-500 rounded-full"></span>}
+                                <span className="text-[10px] font-bold">Admin</span>
+                            </button>
+                        )}
+                    </nav>
+
+                    {/* Modais & Toasts */}
+                    {toast && (
+                        <div className={`fixed bottom-24 left-4 right-4 p-4 rounded-lg shadow-lg text-white text-center font-bold text-sm transition-all ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-600'} z-50`}>
+                            {toast.msg}
+                        </div>
+                    )}
+
+                    {isEditModalOpen && selectedCell && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in">
+                                <div className="p-4 border-b bg-gray-50">
+                                    <h3 className="font-bold text-gray-800">Editar Turno</h3>
+                                    <p className="text-sm text-gray-500">{selectedCell.opName} - Dia {selectedCell.dayIndex + 1}</p>
+                                </div>
+                                <div className="p-6">
+                                    <Select 
+                                        label="Novo Turno"
+                                        value={selectedCell.shift}
+                                        onChange={(e) => setSelectedCell({...selectedCell, shift: e.target.value})}
+                                        options={Object.entries(SHIFT_CONFIG).map(([k, v]) => ({ value: k, label: `${k} - ${v.name}` }))}
+                                    />
+                                </div>
+                                <div className="p-4 flex gap-3 bg-gray-50">
+                                    <Button variant="secondary" className="flex-1" onClick={() => setEditModalOpen(false)}>Cancelar</Button>
+                                    <Button className="flex-1" onClick={() => saveShiftChange(selectedCell.shift)}>Salvar</Button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
