@@ -278,12 +278,16 @@
 
         // Sub-componente: Tabela de Escala
         const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) => {
-            const { scheduleData, dateHeaders, monthName } = schedule;
+            const { scheduleData, dateHeaders, monthName, year } = schedule;
             const today = new Date();
             today.setHours(0,0,0,0);
             
             const dayStatuses = getDayStatusArray(dateHeaders);
             const scrollContainerRef = React.useRef(null);
+
+            // Helpers para cálculo do dia da semana
+            const MONTH_MAP_IDX = {'JANEIRO':0,'FEVEREIRO':1,'MARÇO':2,'ABRIL':3,'MAIO':4,'JUNHO':5,'JULHO':6,'AGOSTO':7,'SETEMBRO':8,'OUTUBRO':9,'NOVEMBRO':10,'DEZEMBRO':11};
+            const WEEKDAYS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
             // Hook para Auto-Scroll para o dia atual
             React.useEffect(() => {
@@ -324,14 +328,35 @@
                                     const isCurrent = status === 'current';
                                     const isToday = isTodayFunc(day, status);
                                     
+                                    // Cálculo do Dia da Semana
+                                    let targetYear = parseInt(year);
+                                    const monthIdx = MONTH_MAP_IDX[monthName.toUpperCase()];
+                                    let targetMonth = monthIdx;
+
+                                    if (status === 'previous') {
+                                        targetMonth = monthIdx - 1;
+                                        if (targetMonth < 0) { targetMonth = 11; targetYear--; }
+                                    } else if (status === 'next') {
+                                        targetMonth = monthIdx + 1;
+                                        if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+                                    }
+                                    
+                                    const dateObj = new Date(targetYear, targetMonth, parseInt(day));
+                                    const weekDay = WEEKDAYS[dateObj.getDay()];
+
                                     return (
                                         <th 
                                             key={idx} 
                                             id={isToday ? "scroll-target-today" : undefined}
                                             className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}
                                         >
-                                            <div className={`text-xs font-bold ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
-                                                {day}
+                                            <div className="flex flex-col items-center justify-center">
+                                                <div className={`text-xs font-bold leading-tight ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
+                                                    {day}
+                                                </div>
+                                                <div className={`text-[9px] uppercase leading-tight mt-0.5 ${isCurrent ? (isToday ? 'text-blue-500' : 'text-gray-400') : 'text-gray-200'}`}>
+                                                    {weekDay}
+                                                </div>
                                             </div>
                                         </th>
                                     );
