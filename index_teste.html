@@ -278,12 +278,16 @@
 
         // Sub-componente: Tabela de Escala
         const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) => {
-            const { scheduleData, dateHeaders, monthName } = schedule;
+            const { scheduleData, dateHeaders, monthName, year } = schedule;
             const today = new Date();
             today.setHours(0,0,0,0);
             
             const dayStatuses = getDayStatusArray(dateHeaders);
             const scrollContainerRef = React.useRef(null);
+
+            // Helpers para cálculo do dia da semana
+            const MONTH_MAP_IDX = {'JANEIRO':0,'FEVEREIRO':1,'MARÇO':2,'ABRIL':3,'MAIO':4,'JUNHO':5,'JULHO':6,'AGOSTO':7,'SETEMBRO':8,'OUTUBRO':9,'NOVEMBRO':10,'DEZEMBRO':11};
+            const WEEKDAYS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
             // Hook para Auto-Scroll para o dia atual
             React.useEffect(() => {
@@ -324,14 +328,35 @@
                                     const isCurrent = status === 'current';
                                     const isToday = isTodayFunc(day, status);
                                     
+                                    // Cálculo do Dia da Semana
+                                    let targetYear = parseInt(year);
+                                    const monthIdx = MONTH_MAP_IDX[monthName.toUpperCase()];
+                                    let targetMonth = monthIdx;
+
+                                    if (status === 'previous') {
+                                        targetMonth = monthIdx - 1;
+                                        if (targetMonth < 0) { targetMonth = 11; targetYear--; }
+                                    } else if (status === 'next') {
+                                        targetMonth = monthIdx + 1;
+                                        if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+                                    }
+                                    
+                                    const dateObj = new Date(targetYear, targetMonth, parseInt(day));
+                                    const weekDay = WEEKDAYS[dateObj.getDay()];
+
                                     return (
                                         <th 
                                             key={idx} 
                                             id={isToday ? "scroll-target-today" : undefined}
                                             className={`p-2 text-center min-w-[3rem] ${isToday ? 'bg-blue-50' : ''}`}
                                         >
-                                            <div className={`text-xs font-bold ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
-                                                {day}
+                                            <div className="flex flex-col items-center justify-center">
+                                                <div className={`text-xs font-bold leading-tight ${isCurrent ? (isToday ? 'text-blue-600' : 'text-gray-600') : 'text-gray-300'}`}>
+                                                    {day}
+                                                </div>
+                                                <div className={`text-[9px] uppercase leading-tight mt-0.5 ${isCurrent ? (isToday ? 'text-blue-500' : 'text-gray-400') : 'text-gray-200'}`}>
+                                                    {weekDay}
+                                                </div>
                                             </div>
                                         </th>
                                     );
@@ -396,7 +421,7 @@
             // --- Effects ---
 
             React.useEffect(() => {
-                // Carregar lista assim que montar
+                // Carregar lista assim que montar, não depende mais de 'user' ser aprovado (modo anônimo)
                 loadSchedulesList();
             }, []);
 
@@ -418,9 +443,7 @@
                 if (schedulesList.length > 0 && !currentScheduleId) {
                     const today = new Date();
                     const monthNames = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-                    // ALTERADO: Formato YYYY-MM para garantir ordenação correta e seleção automática
-                    const currentId = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${monthNames[today.getMonth()]}`;
-                    
+                    const currentId = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}-${monthNames[today.getMonth()]}`;
                     if (schedulesList.includes(currentId)) {
                         setCurrentScheduleId(currentId);
                     } else {
@@ -444,7 +467,7 @@
                 } catch (e) { 
                     console.error(e);
                     if(e.code === 'permission-denied') {
-                        // Silently fail or show message
+                        // Silently fail or show message if needed. Data won't load if rules block it.
                     }
                 }
             };
@@ -490,6 +513,58 @@
                 }
             };
 
+            // Função para Download do CSV (Adicionada)
+            const handleDownloadCSV = () => {
+                if (!schedule) {
+                    showToast("Nenhuma escala carregada para baixar", "error");
+                    return;
+                }
+
+                try {
+                    // Reconstrói o formato CSV (Compatível com o Parser de Importação)
+                    let lines = [];
+                    
+                    // Cabeçalhos (Linhas 0 a 3 - Simula o cabeçalho original)
+                    lines.push(`${schedule.monthName};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`); // Mês
+                    lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+                    lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
+                    lines.push(`${schedule.year};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`); // Ano
+                    
+                    // Linhas de preenchimento (4 a 10) para garantir que o parser encontre a linha de datas no lugar certo
+                    for(let i=4; i<11; i++) {
+                         lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"); 
+                    }
+
+                    // Linha de Datas (O parser espera: ;1;2;3...)
+                    lines.push(";" + schedule.dateHeaders.join(";"));
+
+                    // Linhas de Dados (Operadores e Turnos)
+                    schedule.scheduleData.forEach(op => {
+                        // Formato: "Nome";A;B;F...
+                        lines.push(`"${op.name}";${op.shifts.join(";")}`);
+                    });
+
+                    const csvContent = lines.join("\r\n");
+                    
+                    // Cria o Blob (UTF-8 com BOM para acentuação funcionar no Excel)
+                    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Cria o link invisível e clica
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `Escala_${schedule.monthName}_${schedule.year}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    showToast("Download iniciado!");
+                } catch (e) {
+                    console.error(e);
+                    showToast("Erro ao gerar CSV", "error");
+                }
+            };
+
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -529,8 +604,7 @@
                     }
 
                     const MONTH_MAP = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
-                    // ALTERADO: Formato YYYY-MM para ordenação correta
-                    const newId = `${year}-${MONTH_MAP[monthName.toUpperCase()]}-${monthName.toUpperCase()}`;
+                    const newId = `${MONTH_MAP[monthName.toUpperCase()]}-${year}-${monthName.toUpperCase()}`;
                     
                     const newSchedule = { scheduleData, dateHeaders, monthName, year, originalCsvLines: lines };
                     
@@ -690,6 +764,7 @@
                                             <div className="mb-6 space-y-2">
                                                 <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
                                                 {pendingSwaps.map(req => {
+                                                    // Proteção para não quebrar se userData for null (não deve acontecer aqui pois verificamos user &&)
                                                     const isMe = userData?.displayName?.toLowerCase().includes(req.recipient.opName.toLowerCase());
                                                     if (!isMe && !userData?.isAdmin) return null;
                                                     
@@ -781,6 +856,18 @@
                                                 </label>
                                             </div>
                                         </label>
+
+                                        {currentScheduleId && (
+                                            <div className="pt-2">
+                                                <Button 
+                                                    variant="secondary" 
+                                                    className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50" 
+                                                    onClick={handleDownloadCSV}
+                                                >
+                                                    <i className="fas fa-file-csv mr-2"></i> Baixar Escala Atual (.csv)
+                                                </Button>
+                                            </div>
+                                        )}
 
                                         {currentScheduleId && (
                                             <div className="pt-2 border-t border-gray-100">
