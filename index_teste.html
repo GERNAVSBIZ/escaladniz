@@ -5,184 +5,238 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Escala DNIZ</title>
 
-  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Font Awesome -->
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
-  <!-- React 18 -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
 </head>
 
 <body class="bg-gray-100">
+<div id="root"></div>
 
-  <div id="root"></div>
+<script type="text/babel">
 
-  <script type="text/babel">
+const firebaseConfig = {
+  apiKey: "AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",
+  authDomain: "dashboard-escala.firebaseapp.com",
+  projectId: "dashboard-escala",
+  storageBucket: "dashboard-escala.appspot.com",
+  messagingSenderId: "451393122794",
+  appId: "1:451393122794:web:24f125f11ef3260b770293"
+};
 
-    // 🔥 CONFIG FIREBASE
-    const firebaseConfig = {
-      apiKey: "AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",
-      authDomain: "dashboard-escala.firebaseapp.com",
-      projectId: "dashboard-escala",
-      storageBucket: "dashboard-escala.appspot.com",
-      messagingSenderId: "451393122794",
-      appId: "1:451393122794:web:24f125f11ef3260b770293"
-    };
+firebase.initializeApp(firebaseConfig);
 
-    firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+const ADMIN_NAMES = ["Wilkson", "Adriano"];
 
-    const ADMIN_NAMES = ["Wilkson", "Adriano"];
+const useAuthUser = () => {
 
-    // 🔐 HOOK DE AUTENTICAÇÃO
-    const useAuthUser = () => {
-      const [user, setUser] = React.useState(null);
-      const [userData, setUserData] = React.useState(null);
-      const [loading, setLoading] = React.useState(true);
+  const [user, setUser] = React.useState(null);
+  const [userData, setUserData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
 
-      React.useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+  React.useEffect(() => {
 
-          if (currentUser) {
-            setUser(currentUser);
+    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
 
-            const userRef = db
-              .collection(`artifacts/${firebaseConfig.projectId}/users`)
-              .doc(currentUser.uid);
+      if (currentUser && !currentUser.isAnonymous) {
 
-            const snap = await userRef.get();
+        setUser(currentUser);
 
-            let data;
+        const userRef = db.collection("users").doc(currentUser.uid);
+        const snap = await userRef.get();
 
-            if (!snap.exists) {
+        let data;
 
-              const isAdmin = ADMIN_NAMES.some(name =>
-                currentUser.displayName?.toLowerCase().includes(name.toLowerCase())
-              );
+        if (!snap.exists) {
 
-              data = {
-                uid: currentUser.uid,
-                displayName: currentUser.displayName,
-                email: currentUser.email,
-                status: isAdmin ? "approved" : "pending",
-                isAdmin
-              };
+          const isAdmin = ADMIN_NAMES.some(name =>
+            currentUser.displayName?.toLowerCase().includes(name.toLowerCase())
+          );
 
-              await userRef.set(data);
+          data = {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName,
+            email: currentUser.email,
+            status: isAdmin ? "approved" : "pending",
+            isAdmin
+          };
 
-            } else {
-              data = snap.data();
-            }
+          await userRef.set(data);
 
-            setUserData(data);
+        } else {
+          data = snap.data();
+        }
 
-          } else {
-            setUser(null);
-            setUserData(null);
-          }
+        setUserData(data);
 
-          setLoading(false);
-        });
+      } else if (!currentUser) {
 
-        return () => unsubscribe();
-      }, []);
+        await auth.signInAnonymously();
 
-      const login = async () => {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        await auth.signInWithPopup(provider);
-      };
-
-      const logout = async () => {
-        await auth.signOut();
-      };
-
-      return { user, userData, loading, login, logout };
-    };
-
-    // 🎯 APP
-    const App = () => {
-
-      const { user, userData, loading, login, logout } = useAuthUser();
-
-      if (loading) {
-        return (
-          <div className="min-h-screen flex items-center justify-center">
-            <i className="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
-          </div>
-        );
       }
 
-      return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6">
+      setLoading(false);
 
-          <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-md text-center">
+    });
 
-            <h1 className="text-2xl font-bold mb-4 text-gray-800">
-              Escala DNIZ
-            </h1>
+    return () => unsubscribe();
 
-            {!user ? (
-              <>
-                <p className="text-gray-600 mb-6">
-                  Faça login para acessar o sistema.
-                </p>
+  }, []);
 
-                <button
-                  onClick={login}
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 flex items-center justify-center gap-2 w-full"
-                >
-                  <i className="fab fa-google"></i>
-                  Entrar com Google
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-gray-700 mb-2">
-                  Bem-vindo,
-                </p>
+  const loginGoogle = async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+  };
 
-                <p className="font-bold text-lg text-indigo-600 mb-4">
-                  {user.displayName}
-                </p>
+  const logout = async () => {
+    await auth.signOut();
+  };
 
-                <p className="text-sm text-gray-500 mb-6">
-                  Status: {userData?.status}
-                </p>
+  return { user, userData, loading, loginGoogle, logout };
+};
 
-                <button
-                  onClick={logout}
-                  className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-600 w-full"
-                >
-                  Sair
-                </button>
-              </>
-            )}
 
-          </div>
+const Escala = () => {
+
+  const [escala, setEscala] = React.useState([]);
+
+  React.useEffect(() => {
+
+    const unsubscribe = db.collection("escala")
+      .orderBy("data")
+      .onSnapshot(snapshot => {
+
+        const dados = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setEscala(dados);
+      });
+
+    return () => unsubscribe();
+
+  }, []);
+
+  return (
+    <div className="bg-white shadow-xl rounded-xl p-6">
+
+      <h2 className="text-xl font-bold mb-4">Escala do Mês</h2>
+
+      {escala.length === 0 ? (
+        <p className="text-gray-500">Nenhuma escala cadastrada.</p>
+      ) : (
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="p-2 border">Data</th>
+              <th className="p-2 border">Nome</th>
+              <th className="p-2 border">Turno</th>
+            </tr>
+          </thead>
+          <tbody>
+            {escala.map(item => (
+              <tr key={item.id}>
+                <td className="p-2 border">{item.data}</td>
+                <td className="p-2 border">{item.nome}</td>
+                <td className="p-2 border">{item.turno}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+    </div>
+  );
+};
+
+
+const App = () => {
+
+  const { user, userData, loading, loginGoogle, logout } = useAuthUser();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <i className="fas fa-spinner fa-spin text-4xl text-indigo-600"></i>
+      </div>
+    );
+  }
+
+  if (user?.isAnonymous) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-md text-center">
+
+          <h1 className="text-2xl font-bold mb-4">Escala DNIZ</h1>
+
+          <button
+            onClick={loginGoogle}
+            className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold w-full"
+          >
+            Entrar com Google
+          </button>
 
         </div>
-      );
-    };
+      </div>
+    );
+  }
 
-    // 🚀 RENDER
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<App />);
+  if (userData?.status !== "approved") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-md text-center">
 
-  </script>
+          <h1 className="text-xl font-bold mb-4">Aguardando Aprovação</h1>
 
+          <button
+            onClick={logout}
+            className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold w-full"
+          >
+            Sair
+          </button>
+
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen p-6">
+
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Escala DNIZ</h1>
+
+        <button
+          onClick={logout}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg"
+        >
+          Sair
+        </button>
+      </div>
+
+      <Escala />
+
+    </div>
+  );
+};
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+
+</script>
 </body>
 </html>
