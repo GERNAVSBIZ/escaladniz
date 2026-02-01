@@ -21,41 +21,29 @@
             background-color: #f3f4f6;
             -webkit-tap-highlight-color: transparent;
             padding-bottom: env(safe-area-inset-bottom);
-        }
-        input[type="date"], input[type="time"], select, input[type="text"], input[type="number"] {
-            -webkit-appearance: none;
-            appearance: none;
-            font-size: 16px;
+            overflow-x: hidden;
         }
         .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .sticky-col {
             position: sticky;
             left: 0;
             background-color: white;
-            z-index: 30;
+            z-index: 20;
             border-right: 1px solid #e5e7eb;
-            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.1);
+            box-shadow: 2px 0 5px -2px rgba(0,0,0,0.05);
         }
         .grayscale-cell {
             filter: grayscale(100%);
-            opacity: 0.5;
-            background-color: #f3f4f6 !important;
-            color: #9ca3af !important;
+            opacity: 0.4;
+            background-color: #f9fafb !important;
         }
+        /* Otimização de renderização */
+        .content-visibility-auto { content-visibility: auto; }
+        table { border-spacing: 0; border-collapse: separate; }
+        .cell-active { transform: scale(0.95); transition: transform 0.1s; }
     </style>
-
-    <script>
-        window.onerror = function(message, source, lineno, colno, error) {
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;background:#fee2e2;color:#991b1b;padding:20px;z-index:9999;';
-            errorDiv.innerHTML = `<strong>Erro Crítico:</strong> ${message} <br> <small>${source}:${lineno}</small>`;
-            document.body.appendChild(errorDiv);
-        };
-    </script>
 </head>
 <body>
     <div id="root"></div>
@@ -63,7 +51,7 @@
     <script type="text/babel" data-type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, updateDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, getDoc, deleteDoc, updateDoc, query, where, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyApoDIAXZ5_6GlytJp6IyesM-6epXDqo6k",
@@ -100,136 +88,64 @@
         };
 
         const ADMIN_NAMES = ["Wilkson", "Adriano"];
-        const MANAGER_NAME = "WILKSON";
+        const MONTH_MAP = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
 
-        // --- Hooks ---
-        const useAuthUser = () => {
-            const [user, setUser] = React.useState(null);
-            const [userData, setUserData] = React.useState(null);
-            const [loading, setLoading] = React.useState(true);
-
-            React.useEffect(() => {
-                const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-                    if (currentUser) {
-                        setUser(currentUser);
-                        const userRef = doc(db, `artifacts/${firebaseConfig.projectId}/users`, currentUser.uid);
-                        const userSnap = await getDoc(userRef);
-                        
-                        let data;
-                        if (!userSnap.exists()) {
-                            const isAdmin = ADMIN_NAMES.some(name => currentUser.displayName?.toLowerCase().includes(name.toLowerCase()));
-                            data = {
-                                uid: currentUser.uid,
-                                displayName: currentUser.displayName,
-                                email: currentUser.email,
-                                status: isAdmin ? 'approved' : 'pending',
-                                isAdmin: isAdmin
-                            };
-                            await setDoc(userRef, data);
-                        } else {
-                            data = userSnap.data();
-                            if (ADMIN_NAMES.some(name => currentUser.displayName?.toLowerCase().includes(name.toLowerCase())) && !data.isAdmin) {
-                                data.isAdmin = true;
-                                await updateDoc(userRef, { isAdmin: true });
-                            }
-                        }
-                        setUserData(data);
-                    } else {
-                        setUser(null);
-                        setUserData(null);
-                    }
-                    setLoading(false);
-                });
-                return () => unsubscribe();
-            }, []);
-
-            const login = async () => {
-                try {
-                    const provider = new GoogleAuthProvider();
-                    await signInWithPopup(auth, provider);
-                } catch (error) {
-                    console.error("Login failed", error);
-                }
-            };
-
-            const logout = async () => await signOut(auth);
-            return { user, userData, loading, login, logout };
-        };
-
-        // --- UI Components ---
-        const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => {
-            const variants = {
-                primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
-                secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50',
-                danger: 'bg-red-500 text-white hover:bg-red-600',
-                success: 'bg-green-600 text-white hover:bg-green-700',
-                ghost: 'bg-transparent text-gray-500 hover:bg-gray-100'
-            };
+        // Componentes Atômicos para Performance
+        const ShiftCell = React.memo(({ shift, opIdx, dayIdx, isPast, isSelected, hasPending, onClick }) => {
+            const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
             return (
-                <button 
-                    onClick={onClick} 
-                    className={`h-12 px-4 rounded-lg font-medium transition-colors shadow-sm flex items-center justify-center gap-2 active:scale-95 ${variants[variant]} ${className}`}
-                    {...props}
+                <td 
+                    onClick={() => onClick(opIdx, dayIdx, shift)}
+                    className={`p-1 border-r border-gray-100 text-center min-w-[45px] transition-all cursor-pointer active:scale-90 ${isPast ? 'grayscale-cell' : ''} ${isSelected ? 'ring-2 ring-indigo-500 ring-inset z-10' : ''}`}
                 >
-                    {children}
-                </button>
-            );
-        };
-
-        const Select = ({ value, onChange, options, label }) => (
-            <div className="w-full relative">
-                {label && <label className="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wider">{label}</label>}
-                <select 
-                    value={value} 
-                    onChange={onChange}
-                    className="w-full h-12 px-4 bg-white border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
-                >
-                    {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
-            </div>
-        );
-
-        const PendingApprovalScreen = ({ onLogout }) => (
-            <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
-                    <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <i className="fas fa-user-clock text-4xl"></i>
+                    <div className={`w-full h-10 rounded-md flex items-center justify-center text-[10px] font-black shadow-sm ${config.color} ${config.text} ${hasPending ? 'animate-pulse ring-2 ring-blue-400 ring-offset-1' : ''}`}>
+                        {shift}
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Acesso Pendente</h2>
-                    <p className="text-gray-500 mb-8">Sua conta foi criada, mas um administrador precisa aprovar seu acesso.</p>
-                    <Button variant="secondary" className="w-full" onClick={onLogout}>Sair da Conta</Button>
-                </div>
-            </div>
-        );
+                </td>
+            );
+        });
 
         const ScheduleTable = React.memo(({ schedule, pendingSwaps, onCellClick, selectedCell }) => {
-            const dateStatuses = React.useMemo(() => {
-                const today = new Date();
-                const currentDay = today.getDate();
-                const currentMonth = today.getMonth() + 1;
-                const currentYear = today.getFullYear();
-                
+            const tableRef = React.useRef(null);
+            
+            const dateInfo = React.useMemo(() => {
+                const now = new Date();
+                const d = now.getDate();
+                const m = now.getMonth() + 1;
+                const y = now.getFullYear();
                 const monthNames = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
-                const isCurrentMonth = schedule.monthName.toUpperCase() === monthNames[currentMonth - 1] && parseInt(schedule.year) === currentYear;
+                const isCurrentMonth = schedule.monthName.toUpperCase() === monthNames[m - 1] && parseInt(schedule.year) === y;
 
-                return schedule.dateHeaders.map(dayStr => {
-                    const day = parseInt(dayStr);
-                    if (!isCurrentMonth) return 'other';
-                    if (day < currentDay) return 'past';
-                    if (day === currentDay) return 'today';
-                    return 'future';
-                });
-            }, [schedule.monthName, schedule.year, schedule.dateHeaders]);
+                return {
+                    today: d,
+                    isCurrentMonth,
+                    statuses: schedule.dateHeaders.map(h => {
+                        const day = parseInt(h);
+                        if (!isCurrentMonth) return 'other';
+                        return day < d ? 'past' : (day === d ? 'today' : 'future');
+                    })
+                };
+            }, [schedule]);
+
+            // Scroll automático para o dia atual
+            React.useEffect(() => {
+                if (dateInfo.isCurrentMonth && tableRef.current) {
+                    const todayCell = tableRef.current.querySelector('.bg-indigo-50');
+                    if (todayCell) {
+                        todayCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }
+                }
+            }, [dateInfo.isCurrentMonth]);
 
             return (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden content-visibility-auto" ref={tableRef}>
                     <div className="overflow-x-auto custom-scrollbar">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="sticky-col p-3 text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[120px]">Operador</th>
+                                    <th className="sticky-col p-3 text-[10px] font-bold text-gray-500 uppercase min-w-[100px]">Operador</th>
                                     {schedule.dateHeaders.map((day, i) => (
-                                        <th key={i} className={`p-3 text-center text-xs font-bold border-r border-gray-100 min-w-[45px] ${dateStatuses[i] === 'today' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400'}`}>
+                                        <th key={i} className={`p-3 text-center text-[10px] font-bold border-r border-gray-100 min-w-[45px] ${dateInfo.statuses[i] === 'today' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400'}`}>
                                             {day}
                                         </th>
                                     ))}
@@ -237,29 +153,20 @@
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {schedule.scheduleData.map((op, opIdx) => (
-                                    <tr key={opIdx} className="hover:bg-gray-50/50 transition-colors">
-                                        <td className="sticky-col p-3 text-sm font-bold text-gray-700 whitespace-nowrap">{op.name}</td>
-                                        {op.shifts.map((shift, dayIdx) => {
-                                            const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
-                                            const isPast = dateStatuses[dayIdx] === 'past';
-                                            const isSelected = selectedCell?.opIndex === opIdx && selectedCell?.dayIndex === dayIdx;
-                                            const hasPending = pendingSwaps.some(s => 
-                                                (s.initiator.opIndex === opIdx && s.initiator.dayIndex === dayIdx) || 
-                                                (s.recipient.opIndex === opIdx && s.recipient.dayIndex === dayIdx)
-                                            );
-
-                                            return (
-                                                <td 
-                                                    key={dayIdx}
-                                                    onClick={() => onCellClick(opIdx, dayIdx, op.name, shift, dateStatuses[dayIdx] !== 'other')}
-                                                    className={`p-1 border-r border-gray-100 text-center transition-all cursor-pointer active:scale-90 ${isPast ? 'grayscale-cell' : ''} ${isSelected ? 'ring-2 ring-indigo-500 ring-inset z-10' : ''}`}
-                                                >
-                                                    <div className={`w-full h-10 rounded-md flex items-center justify-center text-xs font-black shadow-sm ${config.color} ${config.text} ${hasPending ? 'animate-pulse ring-2 ring-blue-400 ring-offset-1' : ''}`}>
-                                                        {shift}
-                                                    </div>
-                                                </td>
-                                            );
-                                        })}
+                                    <tr key={opIdx} className="hover:bg-gray-50/30">
+                                        <td className="sticky-col p-3 text-xs font-bold text-gray-700 whitespace-nowrap">{op.name}</td>
+                                        {op.shifts.map((shift, dayIdx) => (
+                                            <ShiftCell 
+                                                key={dayIdx}
+                                                shift={shift}
+                                                opIdx={opIdx}
+                                                dayIdx={dayIdx}
+                                                isPast={dateInfo.statuses[dayIdx] === 'past'}
+                                                isSelected={selectedCell?.opIndex === opIdx && selectedCell?.dayIndex === dayIdx}
+                                                hasPending={pendingSwaps.some(s => (s.initiator.opIndex === opIdx && s.initiator.dayIndex === dayIdx) || (s.recipient.opIndex === opIdx && s.recipient.dayIndex === dayIdx))}
+                                                onClick={(o, d, s) => onCellClick(o, d, op.name, s, dateInfo.statuses[d] !== 'other')}
+                                            />
+                                        ))}
                                     </tr>
                                 ))}
                             </tbody>
@@ -270,7 +177,9 @@
         });
 
         const App = () => {
-            const { user, userData, loading, login, logout } = useAuthUser();
+            const [user, setUser] = React.useState(null);
+            const [userData, setUserData] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
             const [activeTab, setActiveTab] = React.useState('home');
             const [schedulesList, setSchedulesList] = React.useState([]);
             const [currentScheduleId, setCurrentScheduleId] = React.useState(null);
@@ -288,124 +197,80 @@
                 setTimeout(() => setToast(null), 3000);
             };
 
-            // Real-time listener for schedules list
+            // Auth & Initial Data
             React.useEffect(() => {
-                const q = query(collection(db, `artifacts/${firebaseConfig.projectId}/schedules`));
-                const unsubscribe = onSnapshot(q, (snapshot) => {
-                    const list = snapshot.docs.map(doc => doc.id).sort().reverse();
-                    setSchedulesList(list);
-                    if (list.length > 0 && !currentScheduleId) setCurrentScheduleId(list[0]);
+                const unsubscribe = onAuthStateChanged(auth, async (u) => {
+                    if (u) {
+                        setUser(u);
+                        const snap = await getDoc(doc(db, `artifacts/${firebaseConfig.projectId}/users`, u.uid));
+                        if (snap.exists()) setUserData(snap.data());
+                        else {
+                            const isAdmin = ADMIN_NAMES.some(n => u.displayName?.toLowerCase().includes(n.toLowerCase()));
+                            const data = { uid: u.uid, displayName: u.displayName, email: u.email, status: isAdmin ? 'approved' : 'pending', isAdmin };
+                            await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/users`, u.uid), data);
+                            setUserData(data);
+                        }
+                    } else { setUser(null); setUserData(null); }
+                    setLoading(false);
                 });
                 return () => unsubscribe();
             }, []);
 
-            // Real-time listener for current schedule
+            // Listar Escalas e selecionar a do mês atual automaticamente
+            React.useEffect(() => {
+                const q = query(collection(db, `artifacts/${firebaseConfig.projectId}/schedules`));
+                return onSnapshot(q, (snapshot) => {
+                    const list = snapshot.docs.map(doc => doc.id).sort().reverse();
+                    setSchedulesList(list);
+                    
+                    if (list.length > 0 && !currentScheduleId) {
+                        const now = new Date();
+                        const monthNames = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"];
+                        const targetId = `${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}-${monthNames[now.getMonth()]}`;
+                        
+                        if (list.includes(targetId)) setCurrentScheduleId(targetId);
+                        else setCurrentScheduleId(list[0]);
+                    }
+                });
+            }, []);
+
+            // Listeners em tempo real para dados da escala selecionada
             React.useEffect(() => {
                 if (!currentScheduleId) return;
-                const unsubscribe = onSnapshot(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), (doc) => {
-                    if (doc.exists()) setSchedule(doc.data());
+                const unsub1 = onSnapshot(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), (d) => {
+                    if (d.exists()) setSchedule(d.data());
                 });
-                return () => unsubscribe();
+                const unsub2 = onSnapshot(query(collection(db, `artifacts/${firebaseConfig.projectId}/swapRequests`), where("scheduleId", "==", currentScheduleId)), (s) => {
+                    setPendingSwaps(s.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                });
+                return () => { unsub1(); unsub2(); };
             }, [currentScheduleId]);
 
-            // Real-time listener for swap requests
-            React.useEffect(() => {
-                if (!currentScheduleId) return;
-                const q = query(collection(db, `artifacts/${firebaseConfig.projectId}/swapRequests`), where("scheduleId", "==", currentScheduleId));
-                const unsubscribe = onSnapshot(q, (snapshot) => {
-                    setPendingSwaps(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                });
-                return () => unsubscribe();
-            }, [currentScheduleId]);
-
-            // Real-time listener for pending users
+            // Listener para Admin
             React.useEffect(() => {
                 if (!userData?.isAdmin) return;
-                const q = query(collection(db, `artifacts/${firebaseConfig.projectId}/users`), where("status", "==", "pending"));
-                const unsubscribe = onSnapshot(q, (snapshot) => {
-                    setPendingUsers(snapshot.docs.map(doc => doc.data()));
+                return onSnapshot(query(collection(db, `artifacts/${firebaseConfig.projectId}/users`), where("status", "==", "pending")), (s) => {
+                    setPendingUsers(s.docs.map(doc => doc.data()));
                 });
-                return () => unsubscribe();
             }, [userData?.isAdmin]);
 
-            const handleDeleteSchedule = async () => {
-                if (!currentScheduleId || !confirm(`Deletar permanentemente a escala ${currentScheduleId}?`)) return;
-                try {
-                    await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId));
-                    showToast("Escala deletada!");
-                    setSchedule(null);
-                    setCurrentScheduleId(null);
-                } catch(e) { showToast("Erro ao deletar", "error"); }
-            };
+            const login = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch(e) { console.error(e); } };
+            const logout = async () => await signOut(auth);
 
-            const handleDownloadCSV = () => {
-                if (!schedule) return showToast("Nenhuma escala", "error");
-                try {
-                    let lines = [`${schedule.monthName};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`, ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;", ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;", `${schedule.year};;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;`];
-                    for(let i=4; i<11; i++) lines.push(";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;");
-                    lines.push(";" + schedule.dateHeaders.join(";"));
-                    schedule.scheduleData.forEach(op => lines.push(`"${op.name}";${op.shifts.join(";")}`));
-                    const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.download = `Escala_${schedule.monthName}_${schedule.year}.csv`;
-                    link.click();
-                    showToast("Download iniciado!");
-                } catch (e) { showToast("Erro ao gerar CSV", "error"); }
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const lines = event.target.result.split(/\r\n?|\n/);
-                    let scheduleData=[], dateHeaders=[], DATE_ROW=-1;
-                    for(let i=10;i<lines.length;i++){
-                        const parts=lines[i].split(';');
-                        if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim()))){ DATE_ROW=i; break; }
-                    }
-                    if(DATE_ROW === -1) return showToast('CSV inválido', 'error');
-                    const mLine = lines[0].split(';')[0].trim();
-                    const monthName = mLine.charAt(0).toUpperCase() + mLine.slice(1).toLowerCase();
-                    const year = lines[3].split(';')[0].trim().match(/^20\d{2}$/) ? lines[3].split(';')[0].trim() : new Date().getFullYear();
-                    dateHeaders = lines[DATE_ROW].split(';').slice(1).map(d=>d.trim().replace(/"/g,'')).filter(d=>d&&!isNaN(d));
-                    for(let i=DATE_ROW+1; i<lines.length; i++){
-                        const parts=lines[i].split(';');
-                        const name=parts[0].trim().replace(/"/g,'');
-                        if(name.length>2 && isNaN(name)){
-                            const shifts = parts.slice(1, dateHeaders.length+1).map(s => {
-                                const cs = s.trim().replace(/"/g,'');
-                                return SHIFT_CONFIG[cs] ? cs : '---';
-                            });
-                            if(shifts.length === dateHeaders.length) scheduleData.push({name, shifts});
-                        }
-                    }
-                    const MONTH_MAP = {'JANEIRO':'01','FEVEREIRO':'02','MARÇO':'03','ABRIL':'04','MAIO':'05','JUNHO':'06','JULHO':'07','AGOSTO':'08','SETEMBRO':'09','OUTUBRO':'10','NOVEMBRO':'11','DEZEMBRO':'12'};
-                    const newId = `${MONTH_MAP[monthName.toUpperCase()]}-${year}-${monthName.toUpperCase()}`;
-                    await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, newId), { scheduleData, dateHeaders, monthName, year });
-                    showToast('Escala carregada!');
-                    setCurrentScheduleId(newId);
-                    setActiveTab('home'); 
-                };
-                reader.readAsText(file, 'ISO-8859-1');
-            };
-
-            const handleCellClick = (opIndex, dayIndex, opName, shift, isCurrentMonth) => {
+            const handleCellClick = (opIdx, dayIdx, opName, shift, isCurrentMonth) => {
                 if (!user || userData?.status !== 'approved') return showToast("Faça login.", "error");
                 if (!isCurrentMonth) return;
                 if (swapMode) {
                     if (!swapSelection) {
-                        setSwapSelection({ opIndex, dayIndex, opName, shift });
+                        setSwapSelection({ opIndex: opIdx, dayIndex: dayIdx, opName, shift });
                         showToast("Selecione o destino");
                     } else {
-                        if (swapSelection.opIndex === opIndex && swapSelection.dayIndex === dayIndex) return setSwapSelection(null);
+                        if (swapSelection.opIndex === opIdx && swapSelection.dayIndex === dayIdx) return setSwapSelection(null);
                         const id = `${currentScheduleId}_${Date.now()}`;
                         setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, id), {
                             scheduleId: currentScheduleId,
                             initiator: swapSelection,
-                            recipient: { opIndex, dayIndex, opName, shift },
+                            recipient: { opIndex: opIdx, dayIndex: dayIdx, opName, shift },
                             status: 'pending',
                             timestamp: new Date().toISOString()
                         }).then(() => {
@@ -416,7 +281,7 @@
                     }
                 } else {
                     if (userData.isAdmin || userData.displayName.toLowerCase().includes(opName.toLowerCase())) {
-                        setSelectedCell({ opIndex, dayIndex, opName, shift });
+                        setSelectedCell({ opIndex: opIdx, dayIndex: dayIdx, opName, shift });
                         setEditModalOpen(true);
                     } else showToast("Você só pode editar seus turnos", "error");
                 }
@@ -432,52 +297,96 @@
                 } catch(e) { showToast("Erro ao salvar", "error"); }
             };
 
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    try {
+                        const lines = event.target.result.split(/\r\n?|\n/);
+                        let scheduleData=[], dateHeaders=[], DATE_ROW=-1;
+                        for(let i=10;i<lines.length;i++){
+                            const parts=lines[i].split(';');
+                            if(parts[0].trim()===''&&parts.length>15&&!isNaN(parseInt(parts[1]?.trim()))){ DATE_ROW=i; break; }
+                        }
+                        if(DATE_ROW === -1) throw new Error('CSV inválido');
+                        const mLine = lines[0].split(';')[0].trim();
+                        const monthName = mLine.charAt(0).toUpperCase() + mLine.slice(1).toLowerCase();
+                        const year = lines[3].split(';')[0].trim().match(/^20\d{2}$/) ? lines[3].split(';')[0].trim() : new Date().getFullYear();
+                        dateHeaders = lines[DATE_ROW].split(';').slice(1).map(d=>d.trim().replace(/"/g,'')).filter(d=>d&&!isNaN(d));
+                        for(let i=DATE_ROW+1; i<lines.length; i++){
+                            const parts=lines[i].split(';');
+                            const name=parts[0].trim().replace(/"/g,'');
+                            if(name.length>2 && isNaN(name)){
+                                const shifts = parts.slice(1, dateHeaders.length+1).map(s => {
+                                    const cs = s.trim().replace(/"/g,'');
+                                    return SHIFT_CONFIG[cs] ? cs : '---';
+                                });
+                                if(shifts.length === dateHeaders.length) scheduleData.push({name, shifts});
+                            }
+                        }
+                        const newId = `${MONTH_MAP[monthName.toUpperCase()]}-${year}-${monthName.toUpperCase()}`;
+                        await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, newId), { scheduleData, dateHeaders, monthName, year });
+                        showToast('Escala carregada!');
+                        setCurrentScheduleId(newId);
+                        setActiveTab('home');
+                    } catch(e) { showToast(e.message, "error"); }
+                };
+                reader.readAsText(file, 'ISO-8859-1');
+            };
+
             if (loading) return <div className="min-h-screen flex items-center justify-center"><i className="fas fa-spinner fa-spin text-4xl text-indigo-600"></i></div>;
-            if (user && userData?.status !== 'approved') return <PendingApprovalScreen onLogout={logout} />;
+            if (user && userData?.status !== 'approved') return (
+                <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50 text-center">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full">
+                        <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-6"><i className="fas fa-user-clock text-4xl"></i></div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Acesso Pendente</h2>
+                        <p className="text-gray-500 mb-8">Aguarde a aprovação de um administrador.</p>
+                        <button onClick={logout} className="w-full h-12 bg-gray-100 text-gray-700 rounded-lg font-bold">Sair</button>
+                    </div>
+                </div>
+            );
 
             return (
-                <div className="min-h-screen pb-24">
+                <div className="min-h-screen pb-24 max-w-5xl mx-auto">
                     <header className="bg-white shadow-sm px-4 py-3 flex justify-between items-center sticky top-0 z-40">
                         <div className="flex items-center gap-2">
                             <div className="bg-indigo-600 text-white p-2 rounded-lg"><i className="fas fa-calendar-alt"></i></div>
                             <div>
                                 <h1 className="font-bold text-gray-800 leading-tight">Escala DNIZ</h1>
-                                <p className="text-xs text-gray-500">{schedule ? `${schedule.monthName} ${schedule.year}` : 'Nenhuma escala'}</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{schedule ? `${schedule.monthName} ${schedule.year}` : 'Carregando...'}</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
                             {!user ? (
-                                <button onClick={login} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow hover:bg-indigo-700 flex items-center gap-2"><i className="fab fa-google"></i> Entrar</button>
+                                <button onClick={login} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-2"><i className="fab fa-google"></i> Entrar</button>
                             ) : (
-                                <button onClick={logout} className="w-10 h-10 flex items-center justify-center bg-red-50 rounded-full text-red-500 hover:bg-red-100"><i className="fas fa-sign-out-alt"></i></button>
+                                <button onClick={logout} className="w-9 h-9 flex items-center justify-center bg-red-50 rounded-full text-red-500"><i className="fas fa-sign-out-alt"></i></button>
                             )}
                         </div>
                     </header>
 
-                    <main className="p-4 fade-in">
+                    <main className="p-4">
                         {activeTab === 'home' && (
                             <>
                                 <div className="mb-4">
-                                    <Select 
-                                        options={schedulesList.map(id => ({ value: id, label: id }))}
-                                        value={currentScheduleId || ''}
-                                        onChange={(e) => setCurrentScheduleId(e.target.value)}
-                                    />
+                                    <select value={currentScheduleId || ''} onChange={(e) => setCurrentScheduleId(e.target.value)} className="w-full h-12 px-4 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 appearance-none">
+                                        {schedulesList.map(id => <option key={id} value={id}>{id}</option>)}
+                                    </select>
                                 </div>
                                 {schedule ? (
                                     <>
                                         <div className="flex gap-2 mb-4">
-                                            <Button className="flex-1 text-sm" variant={swapMode ? 'danger' : 'primary'} onClick={() => { setSwapMode(!swapMode); setSwapSelection(null); }}>
-                                                <i className={`fas ${swapMode ? 'fa-times' : 'fa-exchange-alt'} mr-2`}></i>
-                                                {swapMode ? 'Cancelar Troca' : 'Trocar Turnos'}
-                                            </Button>
+                                            <button className={`flex-1 h-12 rounded-lg font-bold text-xs shadow-sm flex items-center justify-center gap-2 ${swapMode ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`} onClick={() => { setSwapMode(!swapMode); setSwapSelection(null); }}>
+                                                <i className={`fas ${swapMode ? 'fa-times' : 'fa-exchange-alt'}`}></i> {swapMode ? 'Cancelar' : 'Trocar Turnos'}
+                                            </button>
                                         </div>
                                         {pendingSwaps.map(req => {
                                             const isMe = userData?.displayName?.toLowerCase().includes(req.recipient.opName.toLowerCase());
                                             if (!isMe && !userData?.isAdmin) return null;
                                             return (
-                                                <div key={req.id} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500 text-sm mb-2">
-                                                    <p className="mb-2"><span className="font-bold">{req.initiator.opName}</span> ({req.initiator.shift}) <i className="fas fa-arrow-right text-gray-400 mx-1"></i> <span className="font-bold">{req.recipient.opName}</span> ({req.recipient.shift})</p>
+                                                <div key={req.id} className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-blue-500 text-xs mb-2 flex justify-between items-center">
+                                                    <div><span className="font-bold">{req.initiator.opName}</span> ({req.initiator.shift}) <i className="fas fa-arrow-right mx-1 text-gray-300"></i> <span className="font-bold">{req.recipient.opName}</span> ({req.recipient.shift})</div>
                                                     {isMe && (
                                                         <div className="flex gap-2">
                                                             <button onClick={async () => {
@@ -486,9 +395,9 @@
                                                                 newData[req.recipient.opIndex].shifts[req.recipient.dayIndex] = req.initiator.shift;
                                                                 await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), { scheduleData: newData });
                                                                 await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
-                                                                showToast("Troca aceita!");
-                                                            }} className="bg-green-100 text-green-700 px-3 py-1 rounded text-xs font-bold">Aceitar</button>
-                                                            <button onClick={async () => { await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id)); showToast("Recusada"); }} className="bg-red-100 text-red-700 px-3 py-1 rounded text-xs font-bold">Recusar</button>
+                                                                showToast("Aceito!");
+                                                            }} className="bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Sim</button>
+                                                            <button onClick={async () => { await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id)); showToast("Recusado"); }} className="bg-red-100 text-red-700 px-2 py-1 rounded font-bold">Não</button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -496,17 +405,17 @@
                                         })}
                                         <ScheduleTable schedule={schedule} pendingSwaps={pendingSwaps} onCellClick={handleCellClick} selectedCell={swapSelection || selectedCell} />
                                     </>
-                                ) : <div className="text-center py-10 text-gray-500"><i className="fas fa-folder-open text-4xl mb-2 text-gray-300"></i><p>Nenhuma escala carregada.</p></div>}
+                                ) : <div className="text-center py-20 text-gray-400"><i className="fas fa-spinner fa-spin text-2xl mb-2"></i><p>Carregando escala...</p></div>}
                             </>
                         )}
 
                         {activeTab === 'stats' && schedule && (
-                            <div className="space-y-4">
-                                <h2 className="text-xl font-bold text-gray-800">Resumo de Horas</h2>
+                            <div className="space-y-3">
+                                <h2 className="text-lg font-bold text-gray-800 mb-4">Resumo Mensal</h2>
                                 {schedule.scheduleData.map((op, idx) => (
-                                    <div key={idx} className="bg-white p-4 rounded-lg shadow-sm flex justify-between items-center">
-                                        <span className="font-medium text-gray-700">{op.name}</span>
-                                        <span className="text-lg font-bold text-indigo-600">{op.shifts.reduce((acc, s) => acc + (SHIFT_CONFIG[s]?.hours || 0), 0)}h</span>
+                                    <div key={idx} className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border border-gray-100">
+                                        <span className="font-bold text-gray-700 text-sm">{op.name}</span>
+                                        <div className="flex items-center gap-2"><span className="text-xs text-gray-400">Total:</span><span className="text-lg font-black text-indigo-600">{op.shifts.reduce((acc, s) => acc + (SHIFT_CONFIG[s]?.hours || 0), 0)}h</span></div>
                                     </div>
                                 ))}
                             </div>
@@ -514,43 +423,37 @@
 
                         {activeTab === 'admin' && userData?.isAdmin && (
                             <div className="space-y-6">
-                                <div className="bg-white p-5 rounded-lg shadow-sm border border-indigo-100">
-                                    <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><i className="fas fa-cog text-indigo-600"></i> Gerenciamento</h3>
-                                    <div className="space-y-3">
-                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                                            <div className="flex flex-col items-center justify-center pt-5 pb-6"><i className="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i><p className="text-sm text-gray-500">Enviar CSV</p></div>
-                                            <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
-                                        </label>
-                                        {currentScheduleId && (
-                                            <>
-                                                <Button variant="secondary" className="w-full" onClick={handleDownloadCSV}><i className="fas fa-file-csv mr-2"></i> Baixar CSV</Button>
-                                                <Button variant="danger" className="w-full" onClick={handleDeleteSchedule}><i className="fas fa-trash-alt"></i> Deletar Escala</Button>
-                                            </>
-                                        )}
-                                    </div>
+                                <div className="bg-white p-5 rounded-xl shadow-sm border border-indigo-50">
+                                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><i className="fas fa-upload text-indigo-600"></i> Nova Escala</h3>
+                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-200 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                        <i className="fas fa-file-csv text-2xl text-gray-400 mb-2"></i>
+                                        <p className="text-xs font-bold text-gray-500">Selecionar arquivo CSV</p>
+                                        <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
+                                    </label>
+                                    {currentScheduleId && (
+                                        <button onClick={async () => { if(confirm("Deletar escala?")) { await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId)); showToast("Deletada"); } }} className="w-full h-12 mt-4 bg-red-50 text-red-600 rounded-lg font-bold text-xs"><i className="fas fa-trash-alt mr-2"></i> Deletar Escala Atual</button>
+                                    )}
                                 </div>
                                 {pendingUsers.length > 0 && (
-                                    <div className="bg-white p-5 rounded-lg shadow-sm border border-orange-100">
-                                        <h3 className="font-bold text-gray-800 mb-3">Aprovação de Usuários</h3>
-                                        <div className="space-y-3">
-                                            {pendingUsers.map(u => (
-                                                <div key={u.uid} className="bg-gray-50 p-3 rounded border border-gray-200">
-                                                    <p className="font-bold text-sm">{u.displayName}</p>
-                                                    <p className="text-xs text-gray-500 mb-2">{u.email}</p>
-                                                    <div className="flex gap-2">
-                                                        <Button className="flex-1 h-8 text-xs" variant="success" onClick={async () => { await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/users`, u.uid), { status: 'approved' }); showToast("Aprovado"); }}>Aprovar</Button>
-                                                        <Button className="flex-1 h-8 text-xs" variant="danger" onClick={async () => { await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/users`, u.uid)); showToast("Negado"); }}>Negar</Button>
-                                                    </div>
+                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-orange-50">
+                                        <h3 className="font-bold text-gray-800 mb-4">Usuários Pendentes</h3>
+                                        {pendingUsers.map(u => (
+                                            <div key={u.uid} className="bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2">
+                                                <p className="font-bold text-xs">{u.displayName}</p>
+                                                <p className="text-[10px] text-gray-400 mb-3">{u.email}</p>
+                                                <div className="flex gap-2">
+                                                    <button onClick={async () => { await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/users`, u.uid), { status: 'approved' }); showToast("Aprovado"); }} className="flex-1 h-9 bg-green-600 text-white rounded-lg text-[10px] font-bold">Aprovar</button>
+                                                    <button onClick={async () => { await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/users`, u.uid)); showToast("Negar"); }} className="flex-1 h-9 bg-red-500 text-white rounded-lg text-[10px] font-bold">Negar</button>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
                         )}
                     </main>
 
-                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center pb-[env(safe-area-inset-bottom)] z-40">
+                    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center pb-[env(safe-area-inset-bottom)] z-40 max-w-5xl mx-auto">
                         <button onClick={() => setActiveTab('home')} className={`p-4 flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-indigo-600' : 'text-gray-400'}`}><i className="fas fa-calendar-day text-lg"></i><span className="text-[10px] font-bold">Escala</span></button>
                         <button onClick={() => setActiveTab('stats')} className={`p-4 flex flex-col items-center gap-1 ${activeTab === 'stats' ? 'text-indigo-600' : 'text-gray-400'}`}><i className="fas fa-chart-pie text-lg"></i><span className="text-[10px] font-bold">Resumo</span></button>
                         {userData?.isAdmin && (
@@ -562,16 +465,18 @@
                         )}
                     </nav>
 
-                    {toast && <div className={`fixed bottom-24 left-4 right-4 p-4 rounded-lg shadow-lg text-white text-center font-bold text-sm z-50 ${toast.type === 'error' ? 'bg-red-500' : 'bg-green-600'}`}>{toast.msg}</div>}
+                    {toast && <div className={`fixed bottom-24 left-4 right-4 p-4 rounded-xl shadow-2xl text-white text-center font-bold text-xs z-50 animate-bounce ${toast.type === 'error' ? 'bg-red-500' : 'bg-indigo-600'}`}>{toast.msg}</div>}
 
                     {isEditModalOpen && selectedCell && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-                                <div className="p-4 border-b bg-gray-50"><h3 className="font-bold text-gray-800">Editar Turno</h3><p className="text-sm text-gray-500">{selectedCell.opName} - Dia {selectedCell.dayIndex + 1}</p></div>
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+                                <div className="p-4 border-b bg-gray-50"><h3 className="font-bold text-gray-800 text-sm">Editar Turno</h3><p className="text-xs text-gray-400">{selectedCell.opName} - Dia {selectedCell.dayIndex + 1}</p></div>
                                 <div className="p-6">
-                                    <Select label="Novo Turno" value={selectedCell.shift} onChange={(e) => setSelectedCell({...selectedCell, shift: e.target.value})} options={Object.entries(SHIFT_CONFIG).map(([k, v]) => ({ value: k, label: `${k} - ${v.name}` }))} />
+                                    <select value={selectedCell.shift} onChange={(e) => setSelectedCell({...selectedCell, shift: e.target.value})} className="w-full h-12 px-4 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700">
+                                        {Object.entries(SHIFT_CONFIG).map(([k, v]) => <option key={k} value={k}>{k} - {v.name}</option>)}
+                                    </select>
                                 </div>
-                                <div className="p-4 flex gap-3 bg-gray-50"><Button variant="secondary" className="flex-1" onClick={() => setEditModalOpen(false)}>Cancelar</Button><Button className="flex-1" onClick={() => saveShiftChange(selectedCell.shift)}>Salvar</Button></div>
+                                <div className="p-4 flex gap-3 bg-gray-50"><button className="flex-1 h-12 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-500" onClick={() => setEditModalOpen(false)}>Cancelar</button><button className="flex-1 h-12 bg-indigo-600 text-white rounded-xl text-sm font-bold" onClick={() => saveShiftChange(selectedCell.shift)}>Salvar</button></div>
                             </div>
                         </div>
                     )}
