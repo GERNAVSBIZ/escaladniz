@@ -1,1 +1,60 @@
-teste
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Escala DNIZ Mobile</title>
+
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3652/3652191.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script>
+        window.onerror = function (message, source, lineno, colno, error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.position = 'fixed';
+            errorDiv.style.top = '0';
+            errorDiv.style.left = '0';
+            errorDiv.style.width = '100%';
+            errorDiv.style.background = '#fee2e2';
+            errorDiv.style.color = '#991b1b';
+            errorDiv.style.padding = '20px';
+            errorDiv.style.zIndex = '9999';
+            errorDiv.innerHTML = `<strong>Erro Crítico:</strong> ${message} <br> <small>${source}:${lineno}</small>`;
+            document.body.appendChild(errorDiv);
+        };
+    </script>
+</head>
+
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module" src="js/app.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>
