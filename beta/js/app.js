@@ -343,7 +343,8 @@ const ScheduleCell = ({ shift, onClick, isToday, isSelected, isChanged, isPendin
     );
 };
 
-// Helper para status do dia
+
+// Helper para status do dia (Legacy Logic)
 function getDayStatusArray(dateHeaders) {
     const dayStatus = [];
     let currentStatus = 'previous';
@@ -365,6 +366,7 @@ const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) =>
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Calcula status visual dos dias (Cinza/Normal)
     const dayStatuses = getDayStatusArray(dateHeaders);
     const scrollContainerRef = React.useRef(null);
 
@@ -658,108 +660,112 @@ const App = () => {
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const lines = event.target.result.split(/\r\n?|\n/);
+            let scheduleData = [], dateHeaders = [], monthName = '', year = '', DATE_ROW = -1, DATA_START = -1;
 
-        Papa.parse(file, {
-            header: false,
-            encoding: "ISO-8859-1", // Importante para acentuação BR
-            skipEmptyLines: true,
-            complete: async (results) => {
-                const lines = results.data;
-                let scheduleData = [], dateHeaders = [], monthName = '', year = '', dateRowIndex = -1, dataStartIndex = -1;
-
-                // 1. Encontrar a linha de datas (procura por "1", "2", "3"...)
-                for (let i = 0; i < Math.min(20, lines.length); i++) {
-                    const row = lines[i];
-                    // Estrategia: Linha de datas tem muitos números sequenciais. Verificamos se tem "1" e "2" nas colunas.
-                    // O CSV original tem colunas vazias a esquerda.
-                    // Vamos procurar a primeira linha que tenha células numéricas sequenciais > 15
-                    let numCount = 0;
-                    row.forEach(cell => {
-                        if (!isNaN(parseInt(cell)) && parseInt(cell) > 0 && parseInt(cell) <= 31) numCount++;
-                    });
-
-                    if (numCount > 20) {
-                        dateRowIndex = i;
-                        dataStartIndex = i + 1;
-                        break;
-                    }
+            // Heurística Específica: Pular 10 linhas, procurar (vazio;numero...)
+            // Isso evita pegar a linha de contadores (1,1,1...) que está antes
+            for (let i = 10; i < lines.length; i++) {
+                const parts = lines[i].split(';');
+                if (parts[0].trim() === '' && parts.length > 15 && !isNaN(parseInt(parts[1]?.trim(), 10))) {
+                    DATE_ROW = i; DATA_START = i + 1; break
                 }
+            }
+            if (DATE_ROW === -1) { showToast('Formato CSV inválido (Data Row não encontrada)', 'error'); return; }
 
-                if (dateRowIndex === -1) {
-                    showToast('Não foi possível identificar a linha de datas no CSV.', 'error');
-                    return;
-                }
-
-                // 2. Extrair metadados (Mes e Ano) - Tentativa heurística nas primeiras linhas
-                try {
-                    const firstRow = lines[0] || [];
-                    const forthRow = lines[3] || [];
-
-                    // Procura string de mês
-                    monthName = firstRow.find(c => c && c.length > 3 && isNaN(c)) || 'Desconhecido';
-                    monthName = monthName.charAt(0).toUpperCase() + monthName.slice(1).toLowerCase();
-
-                    // Procura ano (4 digitos)
-                    year = forthRow.find(c => c && c.match(/^20\d{2}$/)) || new Date().getFullYear();
-
-                } catch (e) { console.error("Erro metadados", e); }
-
-                // 3. Processar cabeçalhos de data
-                // Remove colunas vazias a esquerda se houver, baseado na linha de datas
-                const rawDateRow = lines[dateRowIndex];
-                // Indices das colunas que tem datas
-                const dateColIndices = [];
-                rawDateRow.forEach((cell, idx) => {
-                    const val = parseInt(cell);
-                    if (!isNaN(val) && val >= 1 && val <= 31) dateColIndices.push(idx);
-                });
-
-                dateHeaders = dateColIndices.map(idx => rawDateRow[idx]);
-
-                // 4. Processar Operadores
-                for (let i = dataStartIndex; i < lines.length; i++) {
-                    const row = lines[i];
-                    // Nome geralmente é a primeira célula não vazia antes das datas
-                    // Mas assumindo formato padrão: Nome na Coluna 0 ou 1
-                    let name = row[0];
-                    if (!name) continue; // Pula linha sem nome
-
-                    if (name.length > 2 && isNaN(name)) {
-                        const shifts = dateColIndices.map(idx => {
-                            const val = row[idx] ? row[idx].trim().toUpperCase() : '---';
-                            return SHIFT_CONFIG[val] ? val : '---';
-                        });
-
-                        if (shifts.length === dateHeaders.length) {
-                            scheduleData.push({ name: name.replace(/"/g, ''), shifts });
+            try {
+                // Tenta pegar mês nas primeiras 5 linhas (estilo antigo) ou na linha 0
+                const mLine = lines[0].split(';')[0].trim();
+                // Se mLine for vazio, tente procurar
+                if (mLine.length > 2) {
+                    monthName = mLine.charAt(0).toUpperCase() + mLine.slice(1).toLowerCase();
+                } else {
+                    // Fallback check rows 0-5
+                    for (let r = 0; r < 5; r++) {
+                        const check = lines[r].split(';')[0].trim();
+                        if (check.length > 3 && isNaN(check)) {
+                            monthName = check.charAt(0).toUpperCase() + check.slice(1).toLowerCase();
+                            break;
                         }
                     }
                 }
 
-                const MONTH_MAP = { 'JANEIRO': '01', 'FEVEREIRO': '02', 'MARÇO': '03', 'ABRIL': '04', 'MAIO': '05', 'JUNHO': '06', 'JULHO': '07', 'AGOSTO': '08', 'SETEMBRO': '09', 'OUTUBRO': '10', 'NOVEMBRO': '11', 'DEZEMBRO': '12' };
-                // Validar MonthName para evitar undefined
-                const monthCode = MONTH_MAP[monthName.toUpperCase()] || '00';
+                // Ano - Geralmente linha 3
+                const l3 = lines[3] ? lines[3].split(';')[0].trim() : '';
+                year = l3.match(/^20\d{2}$/) ? l3 : new Date().getFullYear();
+            } catch (e) { }
 
-                const newId = `${year}-${monthCode}-${monthName.toUpperCase()}`;
+            // Processar Cabeçalhos (com limpeza de aspas e preenchimento inteligente)
+            const rawHeaders = lines[DATE_ROW].split(';');
+            dateHeaders = [];
 
-                // Salvar Original Lines? PapaParse já parseou. Podemos reconstruir ou salvar results.data se necessário.
-                // Mantendo compatibilidade com o viewer antigo que usa originalCsvLines (que era array de strings)
-                // Vamos reconstruir array de strings basico para não quebrar compatibilidade se houver uso
-                const originalCsvLines = lines.map(row => row.join(';'));
+            // Começa do índice 1 (pula nome) até o fim
+            // Preserva colunas vazias se estiverem entre números (ex: 30 -> "" -> 1)
+            for (let i = 1; i < rawHeaders.length; i++) {
+                let val = rawHeaders[i].trim().replace(/"/g, '');
 
-                const newSchedule = { scheduleData, dateHeaders, monthName: monthName.toUpperCase(), year: String(year), originalCsvLines };
+                // Correção específica: Dia 31 vazio
+                if (val === '') {
+                    const prev = dateHeaders[dateHeaders.length - 1];
+                    // Se o anterior foi 30, assume que este é 31 (mesmo que o próximo seja 1 ou nada)
+                    if (prev === '30') {
+                        val = '31';
+                    }
+                }
 
-                await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, newId), newSchedule);
-                showToast('Escala carregada com sucesso!');
-                await loadSchedulesList();
-                setCurrentScheduleId(newId);
-                setActiveTab('home');
-            },
-            error: (err) => {
-                console.error(err);
-                showToast('Erro ao ler CSV: ' + err.message, 'error');
+                // Só adiciona se for número válido ou se foi corrigido para '31'
+                // Para parar de ler lixo no final da linha, verifica se parou de vir números
+                // Mas precisamos ter cuidado para não parar no buraco do 31.
+                if (val && !isNaN(val)) {
+                    dateHeaders.push(val);
+                } else if (val === '' && dateHeaders.length > 0) {
+                    // Se encontrou vazio e não era o 31, pode ser o fim da linha útil ou apenas uma falha.
+                    // Vamos verificar se tem mais números à frente.
+                    const hasMoreNumbers = rawHeaders.slice(i + 1).some(h => h.trim() && !isNaN(h.trim().replace(/"/g, '')));
+                    if (hasMoreNumbers) {
+                        // Se tem mais números, mantém o buraco como '?' ou tenta inferir? 
+                        // Por enquanto, vamos ignorar se não for o caso do 30->31. 
+                        // O filtro original ignorava. Se não tratamos 30->31 acima, aqui seria ignorado.
+                    } else {
+                        // Fim da linha útil
+                        break;
+                    }
+                }
             }
-        });
+
+            // Processar Dados
+            for (let i = DATA_START; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const parts = line.split(';');
+                const operatorName = parts[0].trim().replace(/"/g, '');
+
+                // Filtro para ignorar linhas ruins
+                if (operatorName.length > 2 && isNaN(operatorName) && operatorName !== 'PNA' && !operatorName.includes('LEGENDA')) {
+                    const shifts = parts.slice(1, dateHeaders.length + 1).map(s => {
+                        const cs = s.trim().replace(/"/g, '');
+                        return SHIFT_CONFIG[cs] ? cs : '---';
+                    });
+                    if (shifts.length === dateHeaders.length) scheduleData.push({ name: operatorName, shifts });
+                }
+            }
+
+            const MONTH_MAP = { 'JANEIRO': '01', 'FEVEREIRO': '02', 'MARÇO': '03', 'ABRIL': '04', 'MAIO': '05', 'JUNHO': '06', 'JULHO': '07', 'AGOSTO': '08', 'SETEMBRO': '09', 'OUTUBRO': '10', 'NOVEMBRO': '11', 'DEZEMBRO': '12' };
+            const mCode = MONTH_MAP[monthName.toUpperCase()] || '01';
+            const newId = `${year}-${mCode}-${monthName.toUpperCase()}`;
+
+            // Persistência
+            const newSchedule = { scheduleData, dateHeaders, monthName: monthName.toUpperCase(), year: String(year), originalCsvLines: lines };
+
+            await setDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, newId), newSchedule);
+            showToast('Escala carregada com sucesso!');
+            await loadSchedulesList();
+            setCurrentScheduleId(newId);
+            setActiveTab('home');
+        };
+        reader.readAsText(file, 'ISO-8859-1');
     };
 
     const handleCellClick = (opIndex, dayIndex, opName, shift, isCurrentMonth) => {
