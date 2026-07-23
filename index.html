@@ -252,15 +252,13 @@
 
             let tagElement = null;
             if (isCurrentMonth && tagColor) {
-                let borderClass = '';
-                if (tagColor === 'yellow') borderClass = 'border-t-amber-400 border-r-amber-400';
-                else if (tagColor === 'green') borderClass = 'border-t-emerald-500 border-r-emerald-500';
-                else if (tagColor === 'blue') borderClass = 'border-t-blue-500 border-r-blue-500';
+                let iconColorClass = '';
+                if (tagColor === 'yellow') iconColorClass = 'text-amber-500';
+                else if (tagColor === 'green') iconColorClass = 'text-emerald-500';
+                else if (tagColor === 'blue') iconColorClass = 'text-blue-500';
 
                 tagElement = (
-                    <span 
-                        className={`absolute top-0 right-0 w-0 h-0 border-t-[10px] border-r-[10px] border-b-transparent border-l-transparent rounded-tr-md ${borderClass}`}
-                    />
+                    <i className={`fas fa-flag absolute top-0.5 right-0.5 text-[9px] ${iconColorClass}`} />
                 );
             }
 
@@ -625,7 +623,7 @@
                                 const cs = s.trim().replace(/"/g,'');
                                 return SHIFT_CONFIG[cs] ? cs : '---';
                             });
-                            if(shifts.length === dateHeaders.length) scheduleData.push({name:operatorName, shifts});
+                            if(shifts.length === dateHeaders.length) scheduleData.push({name:operatorName, shifts, originalShifts: [...shifts]});
                         }
                     }
 
@@ -690,10 +688,23 @@
             const saveShiftChange = async (newShift) => {
                 if (!selectedCell || !schedule) return;
                 const newData = [...schedule.scheduleData];
-                newData[selectedCell.opIndex].shifts[selectedCell.dayIndex] = newShift;
+                const op = newData[selectedCell.opIndex];
+                
+                // Inicializa originalShifts caso não exista na escala antiga
+                if (!op.originalShifts) {
+                    op.originalShifts = [...op.shifts];
+                }
+                
+                op.shifts[selectedCell.dayIndex] = newShift;
                 
                 const individualChanges = { ...(schedule.individualChanges || {}) };
-                individualChanges[`${selectedCell.opIndex}-${selectedCell.dayIndex}`] = true;
+                const key = `${selectedCell.opIndex}-${selectedCell.dayIndex}`;
+                
+                if (op.shifts[selectedCell.dayIndex] === op.originalShifts[selectedCell.dayIndex]) {
+                    delete individualChanges[key];
+                } else {
+                    individualChanges[key] = true;
+                }
                 
                 try {
                     await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), {
@@ -793,15 +804,15 @@
                                         {/* Legenda das Tags */}
                                         <div className="flex flex-wrap gap-4 justify-center items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-4 text-xs font-semibold">
                                             <div className="flex items-center gap-1.5 text-gray-600">
-                                                <span className="w-0 h-0 border-t-[8px] border-r-[8px] border-b-transparent border-l-transparent border-t-amber-400 border-r-amber-400"></span>
+                                                <i className="fas fa-flag text-amber-500 text-xs"></i>
                                                 <span>Troca Pendente</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 text-gray-600">
-                                                <span className="w-0 h-0 border-t-[8px] border-r-[8px] border-b-transparent border-l-transparent border-t-emerald-500 border-r-emerald-500"></span>
+                                                <i className="fas fa-flag text-emerald-500 text-xs"></i>
                                                 <span>Troca Confirmada</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 text-gray-600">
-                                                <span className="w-0 h-0 border-t-[8px] border-r-[8px] border-b-transparent border-l-transparent border-t-blue-500 border-r-blue-500"></span>
+                                                <i className="fas fa-flag text-blue-500 text-xs"></i>
                                                 <span>Alteração Individual</span>
                                             </div>
                                         </div>
