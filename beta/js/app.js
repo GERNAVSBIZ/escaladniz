@@ -318,26 +318,39 @@ const PendingApprovalScreen = ({ onLogout }) => (
 );
 
 // Sub-componente: Célula da Tabela
-const ScheduleCell = ({ shift, onClick, isToday, isSelected, isChanged, isPendingSwap, isCurrentMonth }) => {
+const ScheduleCell = ({ shift, onClick, isToday, isSelected, tagColor, isCurrentMonth }) => {
     const config = SHIFT_CONFIG[shift] || SHIFT_CONFIG['---'];
 
-    let classes = `h-10 w-10 md:h-12 md:w-12 flex items-center justify-center font-bold text-sm rounded-md transition-all `;
+    let classes = `relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center font-bold text-sm rounded-md transition-all `;
 
     if (isCurrentMonth) {
         classes += config.color + ' ' + config.text;
         classes += isToday ? ' ring-2 ring-blue-500 ring-offset-1 ' : '';
         classes += isSelected ? ' ring-4 ring-indigo-500 z-20 scale-110 shadow-lg ' : '';
-        classes += isChanged ? ' ring-2 ring-orange-400 z-10 ' : '';
-        classes += isPendingSwap ? ' animate-pulse ring-2 ring-green-500 z-10 ' : '';
     } else {
         classes += ' grayscale-cell ';
         classes += isSelected ? ' ring-4 ring-gray-400 z-20 ' : '';
+    }
+
+    let tagElement = null;
+    if (isCurrentMonth && tagColor) {
+        let borderClass = '';
+        if (tagColor === 'yellow') borderClass = 'border-t-amber-400 border-r-amber-400';
+        else if (tagColor === 'green') borderClass = 'border-t-emerald-500 border-r-emerald-500';
+        else if (tagColor === 'blue') borderClass = 'border-t-blue-500 border-r-blue-500';
+
+        tagElement = (
+            <span 
+                className={`absolute top-0 right-0 w-0 h-0 border-t-[10px] border-r-[10px] border-b-transparent border-l-transparent rounded-tr-md ${borderClass}`}
+            />
+        );
     }
 
     return (
         <div className="p-1 min-w-[3rem] md:min-w-[3.5rem]" onClick={onClick}>
             <div className={classes}>
                 {shift}
+                {tagElement}
             </div>
         </div>
     );
@@ -455,10 +468,19 @@ const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) =>
                                 {op.name}
                             </td>
                             {op.shifts.map((shift, dayIndex) => {
-                                const pending = pendingSwaps.find(s =>
-                                    (parseInt(s.initiator.opIndex) === opIndex && parseInt(s.initiator.dayIndex) === dayIndex) ||
-                                    (parseInt(s.recipient.opIndex) === opIndex && parseInt(s.recipient.dayIndex) === dayIndex)
+                                const activeSwap = pendingSwaps.find(s =>
+                                    (s.status === 'pending' || s.status === 'accepted') && (
+                                        (parseInt(s.initiator.opIndex) === opIndex && parseInt(s.initiator.dayIndex) === dayIndex) ||
+                                        (parseInt(s.recipient.opIndex) === opIndex && parseInt(s.recipient.dayIndex) === dayIndex)
+                                    )
                                 );
+
+                                let tagColor = null;
+                                if (activeSwap) {
+                                    tagColor = activeSwap.status === 'pending' ? 'yellow' : 'green';
+                                } else if (schedule.individualChanges && schedule.individualChanges[`${opIndex}-${dayIndex}`]) {
+                                    tagColor = 'blue';
+                                }
 
                                 const isSelected = selectedCell && selectedCell.opIndex == opIndex && selectedCell.dayIndex == dayIndex;
                                 const status = dayStatuses[dayIndex];
@@ -470,7 +492,7 @@ const ScheduleTable = ({ schedule, pendingSwaps, onCellClick, selectedCell }) =>
                                             shift={shift}
                                             isToday={isTodayFunc(dateHeaders[dayIndex], status)}
                                             isSelected={isSelected}
-                                            isPendingSwap={!!pending}
+                                            tagColor={tagColor}
                                             isCurrentMonth={isCurrentMonth}
                                             onClick={() => onCellClick(opIndex, dayIndex, op.name, shift, isCurrentMonth)}
                                         />
@@ -817,12 +839,16 @@ const App = () => {
         const newData = [...schedule.scheduleData];
         newData[selectedCell.opIndex].shifts[selectedCell.dayIndex] = newShift;
 
+        const individualChanges = { ...(schedule.individualChanges || {}) };
+        individualChanges[`${selectedCell.opIndex}-${selectedCell.dayIndex}`] = true;
+
         try {
             await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), {
                 scheduleData: newData,
+                individualChanges: individualChanges,
                 lastUpdated: new Date().toISOString()
             });
-            setSchedule({ ...schedule, scheduleData: newData });
+            setSchedule({ ...schedule, scheduleData: newData, individualChanges });
             setEditModalOpen(false);
             showToast("Turno atualizado!");
         } catch (e) {
@@ -912,10 +938,26 @@ const App = () => {
                                 </div>
                                 {swapMode && <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-xs text-center font-medium">Toque no turno de origem, depois no destino (apenas mês atual).</div>}
 
-                                {pendingSwaps.length > 0 && user && (
+                                {/* Legenda das Tags */}
+                                <div className="flex flex-wrap gap-4 justify-center items-center bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-4 text-xs font-semibold">
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <span className="w-0 h-0 border-t-[8px] border-r-[8px] border-b-transparent border-l-transparent border-t-amber-400 border-r-amber-400"></span>
+                                        <span>Troca Pendente</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <span className="w-0 h-0 border-t-[8px] border-r-[8px] border-b-transparent border-l-transparent border-t-emerald-500 border-r-emerald-500"></span>
+                                        <span>Troca Confirmada</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <span className="w-0 h-0 border-t-[8px] border-r-[8px] border-b-transparent border-l-transparent border-t-blue-500 border-r-blue-500"></span>
+                                        <span>Alteração Individual</span>
+                                    </div>
+                                </div>
+
+                                {pendingSwaps.filter(req => req.status === 'pending').length > 0 && user && (
                                     <div className="mb-6 space-y-2">
                                         <h3 className="font-bold text-gray-700 text-sm">Trocas Pendentes</h3>
-                                        {pendingSwaps.map(req => {
+                                        {pendingSwaps.filter(req => req.status === 'pending').map(req => {
                                             // Proteção para não quebrar se userData for null (não deve acontecer aqui pois verificamos user &&)
                                             const isMe = userData?.displayName?.toLowerCase().includes(req.recipient.opName.toLowerCase());
                                             if (!isMe && !userData?.isAdmin) return null;
@@ -933,7 +975,7 @@ const App = () => {
                                                                 newData[i.opIndex].shifts[i.dayIndex] = r.shift;
                                                                 newData[r.opIndex].shifts[r.dayIndex] = i.shift;
                                                                 await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/schedules`, currentScheduleId), { scheduleData: newData });
-                                                                await deleteDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id));
+                                                                await updateDoc(doc(db, `artifacts/${firebaseConfig.projectId}/swapRequests`, req.id), { status: 'accepted' });
                                                                 setSchedule({ ...schedule, scheduleData: newData });
                                                                 loadSwapRequests(currentScheduleId);
                                                                 showToast("Troca aceita!");
